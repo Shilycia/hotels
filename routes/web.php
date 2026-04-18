@@ -55,9 +55,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::put('/menus/{menu}', [MenuController::class, 'update'])->name('menus.update');
     Route::delete('/menus/{menu}', [MenuController::class, 'destroy'])->name('menus.destroy');
 
+
     // Manajemen Booking
     Route::get('/bookings', [BookingController::class, 'index'])->name('bookings');
-    Route::put('/bookings/{booking}/status', [BookingController::class, 'updateStatus'])->name('bookings.status');
+    Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store'); 
+    Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
+    Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
 
     // Laporan & Midtrans (Data JSON untuk grafik dashboard)
     Route::get('/reports/income', [ReportController::class, 'incomeReport'])->name('reports.income');
@@ -65,8 +68,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // ... rute lainnya (dashboard, users, rooms, dll) ...
 
-    // Manajemen Order Restoran
+    // Manajemen Pesanan Restoran
     Route::get('/orders', [OrderController::class, 'index'])->name('orders');
+    Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
+    Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
 
     // Manajemen Pembayaran
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments');

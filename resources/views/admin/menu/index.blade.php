@@ -1,6 +1,6 @@
 @extends('admin.admin')
 
-@section('title', 'Manage User')
+@section('title', 'Restaurant Menu')
 
 @section('content')
 <style>
@@ -29,16 +29,18 @@
         font-size: 13px; color: var(--ink); background: var(--sand);
         outline: none; transition: border-color var(--transition);
     }
-    select.form-control { cursor: pointer; }
+    textarea.form-control { resize: vertical; min-height: 70px; }
     .form-control:focus { border-color: var(--bark); background: #fff; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--sand2); }
-    .user-initials {
-        width: 32px; height: 32px; border-radius: 50%;
-        background: var(--bark-soft); color: var(--bark);
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 500; flex-shrink: 0;
+    .menu-thumb {
+        width: 40px; height: 40px; border-radius: 7px;
+        background: var(--clay-soft); display: flex;
+        align-items: center; justify-content: center;
+        color: var(--clay); font-size: 15px; flex-shrink: 0;
+        overflow: hidden; border: 1px solid var(--sand2);
     }
-    .user-cell { display: flex; align-items: center; gap: 9px; }
+    .menu-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .menu-cell { display: flex; align-items: center; gap: 10px; }
 </style>
 
 @if(session('success'))
@@ -48,33 +50,26 @@
     <div class="alert alert-error" style="margin-bottom:16px"><i class="fas fa-exclamation-circle"></i> {{ session('error') }}</div>
 @endif
 @if($errors->any())
-    <div class="alert alert-error" style="margin-bottom:16px">
-        <div style="font-weight: bold; margin-bottom: 5px;"><i class="fas fa-exclamation-triangle"></i> Gagal menyimpan data:</div>
-        <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
+    <div class="alert alert-error" style="margin-bottom:16px"><i class="fas fa-exclamation-triangle"></i> Terjadi kesalahan input. Pastikan form dan file foto sesuai ketentuan.</div>
 @endif
 
 <div class="section-header">
     <div>
-        <div class="section-title">Data Pengguna</div>
-        <div class="section-desc">Kelola akun dan hak akses seluruh pengguna sistem Hotel Neo.</div>
+        <div class="section-title">Menu Restoran</div>
+        <div class="section-desc">Kelola daftar menu makanan dan minuman restoran Hotel Neo.</div>
     </div>
     <button class="btn btn-primary" onclick="openModal('modalAdd')">
-        <i class="fas fa-plus"></i> Tambah User
+        <i class="fas fa-plus"></i> Tambah Menu
     </button>
 </div>
 
 <div class="table-card">
     <div class="table-card-header">
-        <div class="table-card-title">Daftar User</div>
+        <div class="table-card-title">Daftar Menu</div>
         <div class="table-card-actions">
             <div class="search-wrap">
                 <i class="fas fa-search"></i>
-                <input class="search-input" id="searchInput" placeholder="Cari nama atau email...">
+                <input class="search-input" id="searchInput" placeholder="Cari nama menu...">
             </div>
         </div>
     </div>
@@ -82,40 +77,39 @@
         <table>
             <thead>
                 <tr>
-                    <th>#ID</th>
-                    <th>Pengguna</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Bergabung</th>
+                    <th>Nama Menu</th>
+                    <th>Harga</th>
+                    <th>Deskripsi</th>
                     <th style="text-align:center">Aksi</th>
                 </tr>
             </thead>
-            <tbody id="userTableBody">
-                @forelse($users as $user)
+            <tbody id="menuTableBody">
+                @forelse($menus as $menu)
                 <tr>
-                    <td style="font-size:12px;font-weight:500;color:var(--ink)">#U-{{ str_pad($user->id, 4, '0', STR_PAD_LEFT) }}</td>
                     <td>
-                        <div class="user-cell">
-                            <div class="user-initials">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
-                            <span style="font-weight:500;color:var(--ink)">{{ $user->name }}</span>
+                        <div class="menu-cell">
+                            <div class="menu-thumb">
+                                @if($menu->foto_url)
+                                    <img src="{{ asset($menu->foto_url) }}" alt="{{ $menu->name }}">
+                                @else
+                                    <i class="fas fa-utensils"></i>
+                                @endif
+                            </div>
+                            <span style="font-weight:500;color:var(--ink)">{{ $menu->name }}</span>
                         </div>
                     </td>
-                    <td style="color:var(--ink3)">{{ $user->email }}</td>
-                    <td>
-                        <span class="badge badge-info">{{ $user->roles->first()->name ?? 'No Role' }}</span>
-                    </td>
-                    <td style="font-size:12px;color:var(--ink3)">{{ $user->created_at->format('d M Y') }}</td>
+                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($menu->price ?? 0, 0, ',', '.') }}</td>
+                    <td style="font-size:12px;color:var(--ink3)">{{ \Illuminate\Support\Str::limit($menu->description, 50) ?? '-' }}</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
                             <button class="btn btn-outline btn-sm"
-                                    title="Edit User"
-                                    onclick="openEditModal('{{ $user->id }}', '{{ addslashes($user->name) }}', '{{ $user->email }}', '{{ $user->roles->first()->id ?? null }}')">
-                                <i class="fas fa-edit"></i>
+                                    onclick="openEditModal('{{ $menu->id }}','{{ addslashes($menu->name) }}','{{ $menu->price }}','{{ addslashes($menu->description) }}')">
+                                <i class="fas fa-pen"></i>
                             </button>
-                            <form id="delete-form-{{ $user->id }}" action="{{ route('admin.users.destroy', $user->id) }}" method="POST" style="display:none">
+                            <form id="delete-form-{{ $menu->id }}" action="{{ route('admin.menus.destroy', $menu->id) }}" method="POST" style="display:none">
                                 @csrf @method('DELETE')
                             </form>
-                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ $user->id }}','{{ addslashes($user->name) }}')">
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ $menu->id }}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -123,10 +117,10 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6">
+                    <td colspan="4">
                         <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <p>Belum ada pengguna terdaftar.</p>
+                            <i class="fas fa-utensils"></i>
+                            <p>Belum ada menu terdaftar.</p>
                         </div>
                     </td>
                 </tr>
@@ -134,47 +128,32 @@
             </tbody>
         </table>
     </div>
-
-    @if(isset($users) && method_exists($users, 'links'))
-    <div style="padding:12px 20px;border-top:1px solid var(--sand2)">
-        {{ $users->links() }}
-    </div>
-    @endif
 </div>
 
 {{-- Modal Tambah --}}
 <div class="modal-overlay" id="modalAdd">
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-title">Tambah User Baru</div>
+            <div class="modal-title">Tambah Menu</div>
             <button class="btn-close" onclick="closeModal('modalAdd')"><i class="fas fa-times"></i></button>
         </div>
-        <form action="{{ route('admin.users.store') }}" method="POST">
+        <form action="{{ route('admin.menus.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="form-group">
-                <label class="form-label">Nama Lengkap</label>
-                <input type="text" name="name" class="form-control" placeholder="Nama lengkap" required>
+                <label class="form-label">Nama Menu</label>
+                <input type="text" name="name" class="form-control" placeholder="Contoh: Nasi Goreng Spesial" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Alamat Email</label>
-                <input type="email" name="email" class="form-control" placeholder="email@contoh.com" required>
+                <label class="form-label">Harga (Rp)</label>
+                <input type="number" name="price" class="form-control" placeholder="Contoh: 45000" min="0" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="Minimal 8 karakter" required>
+                <label class="form-label">Deskripsi</label>
+                <textarea name="description" class="form-control" placeholder="Deskripsi singkat menu..."></textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">Konfirmasi Password</label>
-                <input type="password" name="password_confirmation" class="form-control" placeholder="Ketik ulang password" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Role</label>
-                <select name="role_id" class="form-control" required>
-                    <option value="">-- Pilih Role --</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
-                    @endforeach
-                </select>
+                <label class="form-label">Foto Menu (Opsional)</label>
+                <input type="file" name="foto_url" class="form-control" accept="image/*">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalAdd')">Batal</button>
@@ -188,35 +167,27 @@
 <div class="modal-overlay" id="modalEdit">
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-title">Edit User</div>
+            <div class="modal-title">Edit Menu</div>
             <button class="btn-close" onclick="closeModal('modalEdit')"><i class="fas fa-times"></i></button>
         </div>
-        <form id="formEditUser" method="POST">
+        <form id="formEditMenu" method="POST" enctype="multipart/form-data">
             @csrf @method('PUT')
             <div class="form-group">
-                <label class="form-label">Nama Lengkap</label>
+                <label class="form-label">Nama Menu</label>
                 <input type="text" name="name" id="edit_name" class="form-control" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Alamat Email</label>
-                <input type="email" name="email" id="edit_email" class="form-control" required>
+                <label class="form-label">Harga (Rp)</label>
+                <input type="number" name="price" id="edit_price" class="form-control" min="0" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Password Baru <span style="color:var(--ink3);font-weight:400">(kosongkan jika tidak diubah)</span></label>
-                <input type="password" name="password" class="form-control" placeholder="Isi jika ingin mengganti password">
+                <label class="form-label">Deskripsi</label>
+                <textarea name="description" id="edit_description" class="form-control"></textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">Konfirmasi Password Baru</label>
-                <input type="password" name="password_confirmation" class="form-control" placeholder="Ketik ulang password baru">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Role</label>
-                <select name="role_id" id="edit_role_id" class="form-control">
-                    <option value="">-- Pilih Role --</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
-                    @endforeach
-                </select>
+                <label class="form-label">Ganti Foto (Opsional)</label>
+                <input type="file" name="foto_url" class="form-control" accept="image/*">
+                <small style="color: var(--ink3); font-size: 10px;">Kosongkan jika tidak ingin mengubah foto</small>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalEdit')">Batal</button>
@@ -233,18 +204,19 @@
     function openModal(id)  { document.getElementById(id).classList.add('show'); }
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-    function openEditModal(id, name, email, roleId) {
-        document.getElementById('edit_name').value = name;
-        document.getElementById('edit_email').value = email;
-        document.getElementById('edit_role_id').value = roleId;
-        document.getElementById('formEditUser').action = '/admin/users/' + id;
+    // Update parameter JS menyesuaikan form yang ada
+    function openEditModal(id, name, price, description) {
+        document.getElementById('edit_name').value        = name;
+        document.getElementById('edit_price').value       = price;
+        document.getElementById('edit_description').value = description;
+        document.getElementById('formEditMenu').action    = '/admin/menus/' + id;
         openModal('modalEdit');
     }
 
-    function confirmDelete(id, name) {
+    function confirmDelete(id) {
         Swal.fire({
-            title: 'Hapus User?',
-            text: name + ' akan dihapus dari sistem.',
+            title: 'Hapus Menu?',
+            text: 'Item menu ini akan dihapus dari daftar.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#c07850',
@@ -255,10 +227,9 @@
         }).then(r => { if (r.isConfirmed) document.getElementById('delete-form-' + id).submit(); });
     }
 
-    // Live search
     document.getElementById('searchInput').addEventListener('input', function () {
         const q = this.value.toLowerCase();
-        document.querySelectorAll('#userTableBody tr').forEach(row => {
+        document.querySelectorAll('#menuTableBody tr').forEach(row => {
             row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });

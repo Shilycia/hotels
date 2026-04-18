@@ -39,7 +39,7 @@ class BookingController extends Controller
             $totalPrice = $room->roomType->price ?? 0; 
 
             $booking = Booking::create([
-                'guest_id'    => $request->guest_id ?? Auth::id(), // Menggunakan auth()->id() jika dari app
+                'guest_id'    => $request->guest_id ?? Auth::id(),
                 'room_id'     => $request->room_id,
                 'check_in'    => $request->check_in,
                 'check_out'   => $request->check_out,
