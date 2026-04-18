@@ -21,7 +21,6 @@ class PaymentController extends Controller
 
     public function createMidtransToken(Request $request) 
     {
-        // Validasi input
         $request->validate([
             'booking_id' => 'required|exists:bookings,id',
             'amount' => 'required|numeric',
@@ -36,8 +35,8 @@ class PaymentController extends Controller
                 'gross_amount' => (int) $request->amount,
             ],
             'customer_details' => [
-                'first_name' => $user->name,
-                'email'      => $user->email,
+                'first_name' => $user->name ?? 'Guest',
+                'email'      => $user->email ?? 'guest@hotelneo.com',
             ],
         ];
 
@@ -56,7 +55,6 @@ class PaymentController extends Controller
                 'success' => true,
                 'snap_token' => $snapToken
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

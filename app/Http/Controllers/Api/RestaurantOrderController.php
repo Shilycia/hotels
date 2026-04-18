@@ -20,16 +20,14 @@ class RestaurantOrderController extends Controller
         ]);
 
         return DB::transaction(function () use ($request) {
-            // 1. Buat Header Order
             $order = RestaurantOrder::create([
                 'guest_id'    => $request->guest_id,
-                'total_price' => 0, // Akan diupdate setelah hitung detail
+                'total_price' => 0, 
                 'status'      => 'ordered',
             ]);
 
             $totalPrice = 0;
 
-            // 2. Input Detail & Hitung Total
             foreach ($request->items as $item) {
                 $menu = \App\Models\RestaurantMenu::find($item['restaurant_menu_id']);
                 $subtotal = $menu->price * $item['quantity'];
@@ -44,7 +42,6 @@ class RestaurantOrderController extends Controller
                 $totalPrice += $subtotal;
             }
 
-            // 3. Update Total Harga di Header
             $order->update(['total_price' => $totalPrice]);
 
             return response()->json(['message' => 'Pesanan restoran berhasil', 'data' => $order->load('details')], 201);

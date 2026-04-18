@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
@@ -19,6 +19,7 @@ class ReportController extends Controller
         Config::$is3ds = true;
     }
 
+    // Endpoint API internal untuk grafik Dashboard (Dipanggil via fetch di JS)
     public function incomeReport(Request $request)
     {
         $start = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : now()->startOfMonth();
@@ -46,11 +47,11 @@ class ReportController extends Controller
         ]);
     }
 
+    // Pengecekan Manual Midtrans oleh Admin
     public function checkMidtransStatus($orderId)
     {
         try {
             $status = Transaction::status($orderId);
-            
             return response()->json([
                 'success' => true,
                 'midtrans_raw_status' => $status['transaction_status'],
@@ -63,21 +64,6 @@ class ReportController extends Controller
                 'success' => false,
                 'message' => 'Gagal mengambil data dari Midtrans: ' . $e->getMessage()
             ], 500);
-        }
-    }
-
-    public function callback(Request $request)
-    {
-        $serverKey = config('services.midtrans.server_key');
-        $hashed = hash("sha512", $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
-        
-        if ($hashed == $request->signature_key) {
-            if ($request->transaction_status == 'settlement' || $request->transaction_status == 'capture') {
-                $payment = Payment::where('order_id', $request->order_id)->first();
-                if ($payment) {
-                    $payment->update(['payment_status' => 'paid']);
-                }
-            }
         }
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -11,7 +11,11 @@ class UserController extends Controller
 {
     public function index()
     {
-        return response()->json(User::with('roles')->get());
+        $users = User::with('roles')->get();
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ], 200);
     }
 
     public function store(Request $request)
@@ -20,7 +24,7 @@ class UserController extends Controller
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:8',
-            'role_id' => 'required|exists:roles,id'
+            'role_id' => 'required'
         ]);
 
         $user = User::create([
@@ -31,12 +35,12 @@ class UserController extends Controller
 
         $user->roles()->attach($request->role_id);
 
-        return response()->json(['message' => 'User berhasil ditambahkan', 'data' => $user->load('roles')], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'User created via API',
+            'data' => $user->load('roles')
+        ], 201);
     }
 
-    public function destroy(User $user)
-    {
-        $user->delete();
-        return response()->json(['message' => 'User berhasil dihapus']);
-    }
+    // Fungsi update dan delete API bisa ditambahkan dengan logika serupa
 }

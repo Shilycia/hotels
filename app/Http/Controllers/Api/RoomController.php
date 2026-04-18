@@ -4,18 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Room;
-use App\Http\Resources\RoomResource;
 
 class RoomController extends Controller
 {
     public function index()
     {
-        $rooms = Room::with('roomType')->get();
+        // Hanya tampilkan kamar yang statusnya 'available'
+        $rooms = Room::with('roomType')->where('status', 'available')->get();
         
         return response()->json([
             'success' => true,
-            'message' => 'Daftar kamar berhasil diambil',
-            'data' => RoomResource::collection($rooms)
+            'message' => 'Daftar kamar tersedia berhasil diambil',
+            'data' => $rooms
         ], 200);
     }
 }
