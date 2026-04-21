@@ -75,7 +75,7 @@
                     <th>Tipe Kamar</th>
                     <th>Harga / Malam</th>
                     <th>Tipe Kasur</th>
-                    <th>Kapasitas</th> {{-- 🟢 Kolom Baru --}}
+                    <th>Kapasitas</th> 
                     <th>Deskripsi</th>
                     <th style="text-align:center">Total Kamar</th>
                     <th style="text-align:center">Aksi</th>
@@ -88,7 +88,6 @@
                     <td><span class="badge badge-active">Rp {{ number_format($type->price, 0, ',', '.') }}</span></td>
                     <td style="color:var(--ink3)">{{ $type->bed_type ?? '-' }} <br><small>({{ $type->bath_count ?? 0 }} Bath)</small></td>
                     
-                    {{-- 🟢 Menampilkan Kapasitas --}}
                     <td>
                         <div style="display:flex; gap:4px; flex-direction:column;">
                             <span class="capacity-badge"><i class="fas fa-user" style="color:var(--primary);margin-right:4px"></i>{{ $type->adult_capacity ?? 0 }} Dewasa</span>
@@ -100,7 +99,6 @@
                     <td style="color:var(--ink3);text-align:center"><i class="fas fa-door-closed" style="margin-right:5px;font-size:11px"></i>{{ $type->rooms_count ?? 0 }} Unit</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
-                            {{-- 🟢 Menambahkan pengiriman data kapasitas ke Javascript --}}
                             <button class="btn btn-outline btn-sm"
                                 onclick="openEditModal(
                                     '{{ $type->id }}',
@@ -255,7 +253,6 @@
     function openModal(id)  { document.getElementById(id).classList.add('show'); }
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-    // 🟢 Menerima tambahan parameter adultCapacity dan childCapacity
     function openEditModal(id, name, price, adultCapacity, childCapacity, bedType, bathCount, description, currentImage) {
         document.getElementById('edit_name').value           = name;
         document.getElementById('edit_price').value          = price;

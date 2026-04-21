@@ -43,7 +43,6 @@ class RestaurantOrderController extends Controller
                 $totalPrice += $subtotal;
             }
 
-            // Update total harga orderan
             $order->update(['total_price' => $totalPrice]);
 
             Payment::create([

@@ -24,13 +24,11 @@
                             <a href="{{ route('rooms') }}" class="btn btn-primary py-3 px-5 me-3 animated slideInRight">
                                 Book A Room
                             </a>
-                            {{-- 🟢 PERBAIKAN DI SINI: Hapus ('guest') menjadi hanya @guest --}}
                             @guest
                                 <a href="{{ route('guest.login') }}" class="btn btn-outline-light py-3 px-5 animated slideInRight">
                                     Login / Register
                                 </a>
                             @endguest
-                            {{-- 🟢 PERBAIKAN DI SINI: Hapus ('guest') menjadi hanya @auth --}}
                             @auth
                                 <a href="{{ route('rooms') }}" class="btn btn-outline-light py-3 px-5 animated slideInRight">
                                     Explore Rooms

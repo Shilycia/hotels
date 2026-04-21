@@ -16,14 +16,11 @@ return new class extends Migration
             $table->foreignId('restaurant_order_id')->constrained('restaurant_orders')->onDelete('cascade');
             $table->foreignId('restaurant_menu_id')->constrained('restaurant_menus');
             $table->integer('quantity');
-            $table->decimal('price', 12, 2); // Harga saat dipesan
+            $table->decimal('price', 12, 2);
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         //

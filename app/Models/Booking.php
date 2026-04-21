@@ -19,19 +19,16 @@ class Booking extends Model
         'special_request' 
     ];
 
-    // Relasi ke Guest
     public function guest()
     {
         return $this->belongsTo(Guest::class);
     }
 
-    // Relasi ke Room
     public function room()
     {
         return $this->belongsTo(Room::class);
     }
 
-    // 🟢 TAMBAHKAN INI: Relasi ke Payment
     public function payment()
     {
         return $this->hasOne(Payment::class);

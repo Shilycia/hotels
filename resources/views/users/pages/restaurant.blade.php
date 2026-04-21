@@ -4,7 +4,6 @@
 
 @section('content')
 
-{{-- 🟢 TRIK UX: Ambil data tamu jika mereka sudah login --}}
 @php
     $loggedInGuest = null;
     if(session('guest_id')) {
@@ -122,7 +121,6 @@
                 <div class="col-lg-4 col-md-6">
                     <div class="card h-100 border shadow-sm menu-card position-relative" style="border-radius:10px;overflow:hidden;transition:transform .2s">
 
-                        {{-- 🟢 BUNGKUSAN LINK UNTUK KLIK DETAIL --}}
                         <a href="{{ route('menu.detail', $menu->id) }}" class="text-decoration-none d-block">
 
                             {{-- Image --}}
@@ -157,7 +155,7 @@
                                 </div>
                             </div>
                         
-                        </a> {{-- 🟢 AKHIR BUNGKUSAN LINK --}}
+                        </a> 
 
                         {{-- Footer / Order Button --}}
                         <div class="card-footer bg-white border-top-0 p-3 pt-0 position-relative" style="z-index: 2;">
@@ -203,7 +201,6 @@
     </div>
 </div>
 
-{{-- 🟢 MODAL FORM ORDER RESTORAN --}}
 <div class="modal fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -213,7 +210,6 @@
             </div>
             @if(session('guest_id'))
                 @if(isset($activeBooking) && $activeBooking)
-                    {{-- 🟢 JIKA PUNYA KAMAR AKTIF -> Tampilkan Form Order --}}
                     <form action="{{ route('menus.order') }}" method="POST" id="orderForm">
                         @csrf
                         <div class="modal-body p-4">
@@ -258,7 +254,6 @@
                         </div>
                     </form>
                 @else
-                    {{-- 🟢 JIKA BELUM PUNYA KAMAR -> Larang Pesan --}}
                     <div class="modal-body p-5 text-center">
                         <i class="fa fa-exclamation-triangle text-warning mb-3" style="font-size:3rem;"></i>
                         <h5 class="fw-bold">No Active Room Booking</h5>
@@ -269,7 +264,6 @@
                     </div>
                 @endif
             @else
-                {{-- 🟢 JIKA BELUM LOGIN --}}
                 <div class="modal-body p-5 text-center">
                     <i class="fa fa-user-lock text-muted mb-3" style="font-size:3rem; opacity:0.5"></i>
                     <h5 class="fw-bold">Authentication Required</h5>
@@ -295,7 +289,6 @@
 
 @push('scripts')
 <script>
-    // 🟢 JS untuk menangani Modal Order
     function openOrderModal(id, name, price) {
         // Set nilai ke dalam input modal
         document.getElementById('modal_menu_id').value = id;

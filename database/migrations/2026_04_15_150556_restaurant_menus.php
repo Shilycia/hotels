@@ -11,13 +11,12 @@ return new class extends Migration
         Schema::create('restaurant_menus', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('category'); // 🟢 Ini adalah kolom yang bikin error tadi
+            $table->string('category'); 
             $table->text('description')->nullable();
             $table->decimal('price', 12, 2);
-            $table->string('foto_url')->nullable(); // 🟢 Dan ini nama foto yang benar
+            $table->string('foto_url')->nullable();
             $table->boolean('is_available')->default(true);
             
-            // Kolom detail
             $table->integer('prep_time')->default(15);
             $table->integer('calories')->nullable();
             $table->string('allergens')->nullable();

@@ -88,7 +88,6 @@ class BookingController extends Controller
             Room::where('id', $booking->room_id)->update(['status' => 'available']);
         }
 
-        // 1. Update Tabel Bookings
         $booking->update([
             'guest_id' => $request->guest_id,
             'room_id' => $request->room_id,
@@ -100,10 +99,8 @@ class BookingController extends Controller
 
         $payment = \App\Models\Payment::where('booking_id', $booking->id)->first();
         if ($payment) {
-            // Update nominal tagihan jika ada perubahan harga/tanggal
             $payment->amount = $totalPrice;
 
-            // Sesuaikan status payment dengan status booking yang baru
             if (in_array($request->status, ['confirmed', 'checked_in', 'checked_out'])) {
                 $payment->payment_status = 'paid';
             } elseif ($request->status === 'cancelled') {
@@ -112,7 +109,7 @@ class BookingController extends Controller
                 $payment->payment_status = 'pending';
             }
             
-            $payment->save(); // Simpan perubahan payment ke database
+            $payment->save(); 
         }
 
         // 3. Update Status Fisik Kamar

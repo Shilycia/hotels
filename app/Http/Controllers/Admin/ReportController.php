@@ -19,7 +19,6 @@ class ReportController extends Controller
         Config::$is3ds = true;
     }
 
-    // Endpoint API internal untuk grafik Dashboard (Dipanggil via fetch di JS)
     public function incomeReport(Request $request)
     {
         $start = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : now()->startOfMonth();
@@ -47,7 +46,6 @@ class ReportController extends Controller
         ]);
     }
 
-    // Pengecekan Manual Midtrans oleh Admin
     public function checkMidtransStatus($orderId)
     {
         try {

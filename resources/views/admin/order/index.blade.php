@@ -102,7 +102,6 @@
                     </td>
                     <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($order->total_price ?? 0, 0, ',', '.') }}</td>
                     
-                    {{-- 🟢 PERBAIKAN TAMPILAN STATUS: Tambah Indikator Link Payment --}}
                     <td>
                         @if($order->status === 'paid')
                             <span class="badge badge-paid" style="background:#c8d8b8; color:#4a7c59; padding:4px 8px; border-radius:4px;">Lunas (Paid)</span>

@@ -19,14 +19,12 @@ class OrderController extends Controller
                                  ->orderBy('created_at', 'desc')
                                  ->get(); 
         
-        // Ambil data tamu dan menu untuk ditampilkan di form Tambah Order
         $guests = Guest::orderBy('name', 'asc')->get();
         $menus = RestaurantMenu::orderBy('name', 'asc')->get();
 
         return view('admin.order.index', compact('orders', 'guests', 'menus'));
     }
 
-    // 🟢 FUNGSI BARU UNTUK MENAMBAH ORDER MANUAL 🟢
     public function store(Request $request)
     {
         $request->validate([
@@ -38,7 +36,6 @@ class OrderController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            // 1. Buat Order Utama
             $order = RestaurantOrder::create([
                 'guest_id'    => $request->guest_id,
                 'total_price' => 0, 
@@ -47,7 +44,6 @@ class OrderController extends Controller
 
             $totalPrice = 0;
 
-            // 2. Looping item yang dipesan
             foreach ($request->menu_id as $index => $menuId) {
                 $qty = $request->qty[$index];
                 $menu = RestaurantMenu::find($menuId);
@@ -57,16 +53,14 @@ class OrderController extends Controller
                     'restaurant_order_id' => $order->id,
                     'restaurant_menu_id'  => $menu->id,
                     'quantity'            => $qty,
-                    'price'               => $menu->price, // Kunci harga saat ini
+                    'price'               => $menu->price,
                 ]);
 
                 $totalPrice += $subtotal;
             }
 
-            // 3. Update Total Harga
             $order->update(['total_price' => $totalPrice]);
 
-            // 4. Buat Tagihan (Payment) Otomatis
             Payment::create([
                 'restaurant_order_id' => $order->id,
                 'amount'              => $totalPrice,

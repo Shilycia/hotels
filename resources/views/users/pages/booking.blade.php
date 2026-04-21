@@ -53,9 +53,7 @@
                                class="form-control @error('email') is-invalid @enderror"
                                id="email"
                                placeholder="Your Email"
-                               {{-- 🟢 AUTO-FILL EMAIL --}}
                                value="{{ old('email', $loggedInGuest ? $loggedInGuest->email : '') }}"
-                               {{-- Kunci email jika sudah login agar tidak diubah sembarangan --}}
                                {{ $loggedInGuest ? 'readonly' : '' }}>
                         <label for="email">Your Email</label>
                         @error('email')
@@ -121,7 +119,7 @@
                             <option value="">-- Select Room --</option>
                             @foreach($rooms ?? [] as $room)
                             <option value="{{ $room->id }}"
-                                {{ (old('room_id', request('room')) == $room->id) ? 'selected' : '' }}>
+                                {{ (old('room_id', request('room')) == $room->id) ? 'selected' : null }}>
                                 {{ $room->name }} - Rp {{ number_format($room->price, 0, ',', '.') }}/Night
                             </option>
                             @endforeach

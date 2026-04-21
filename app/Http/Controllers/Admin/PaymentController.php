@@ -56,7 +56,6 @@ class PaymentController extends Controller
             
             if ($payment->booking) {
                 $payment->booking()->update(['status' => 'pending']);
-                // Lepas kamar jadi available
                 if ($payment->booking->room) {
                     $payment->booking->room()->update(['status' => 'available']);
                 }

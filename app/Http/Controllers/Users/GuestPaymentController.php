@@ -11,12 +11,8 @@ use Midtrans\Snap;
 
 class GuestPaymentController extends Controller
 {
-    /**
-     * Menampilkan halaman pop-up Midtrans untuk Tamu (Front-End)
-     */
     public function show(Payment $payment)
     {
-        // 1. Set konfigurasi Midtrans
         Config::$serverKey = config('midtrans.server_key');
         Config::$isProduction = config('midtrans.is_production');
         Config::$isSanitized = config('midtrans.is_sanitized');
@@ -39,15 +35,11 @@ class GuestPaymentController extends Controller
             ],
         ];
 
-        // Minta Snap Token dari server Midtrans
         $snapToken = Snap::getSnapToken($params);
 
         return view('users.payment.index', compact('payment', 'snapToken'));
     }
 
-    /**
-     * Mengupdate status otomatis dari klik JavaScript (Front-End Tamu)
-     */
     public function updateFrontendStatus(Request $request, Payment $payment)
     {
         $status = $request->status;

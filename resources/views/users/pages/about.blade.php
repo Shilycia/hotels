@@ -6,7 +6,6 @@
 
 @include('users.components.page-header', ['title' => 'About Us', 'breadcrumb' => 'About'])
 
-{{-- About Section --}}
 <div class="container-fluid py-5">
     <div class="container">
         <div class="row g-5 align-items-center">
@@ -48,7 +47,6 @@
     </div>
 </div>
 
-{{-- Facts / Counter --}}
 <div class="container-fluid overflow-hidden px-lg-0">
     <div class="container facts px-lg-0">
         <div class="row g-0 mx-lg-0">
@@ -89,7 +87,6 @@
     </div>
 </div>
 
-{{-- Team Preview --}}
 <div class="container-fluid py-5">
     <div class="container">
         <div class="text-center wow fadeInUp" data-wow-delay="0.1s">

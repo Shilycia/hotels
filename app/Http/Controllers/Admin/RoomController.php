@@ -11,7 +11,6 @@ class RoomController extends Controller
 {
     public function index()
     {
-        // Menggunakan paginate agar tampilan tabel tidak terlalu panjang
         $rooms = Room::with('roomType')
             ->orderBy('floor', 'asc')
             ->orderBy('room_number', 'asc')
@@ -27,7 +26,7 @@ class RoomController extends Controller
         $validated = $request->validate([
             'room_number'  => 'required|unique:rooms',
             'room_type_id' => 'required|exists:room_types,id',
-            'floor'        => 'required|integer|min:1', // Validasi lantai baru
+            'floor'        => 'required|integer|min:1', 
             'status'       => 'required|in:available,occupied,maintenance'
         ]);
 
@@ -41,7 +40,7 @@ class RoomController extends Controller
         $validated = $request->validate([
             'room_number'  => 'required|unique:rooms,room_number,' . $room->id,
             'room_type_id' => 'required|exists:room_types,id',
-            'floor'        => 'required|integer|min:1', // Validasi lantai baru
+            'floor'        => 'required|integer|min:1', 
             'status'       => 'required|in:available,occupied,maintenance'
         ]);
 

@@ -12,10 +12,6 @@ use Illuminate\Support\Facades\Auth;
 
 class BookingController extends Controller
 {
-    /**
-     * Tampilkan halaman form booking.
-     * Query string: ?check_in=&check_out=&adult=&child=&room_type=
-     */
     public function index(Request $request)
     {
         $rooms    = Room::with('roomType')->where('status', 'available')->orderBy('floor')->orderBy('room_number')->get();
@@ -24,13 +20,8 @@ class BookingController extends Controller
         return view('users.pages.booking', compact('rooms', 'authUser'));
     }
 
-    /**
-     * Simpan booking baru.
-     * Alur: validasi → cek ketersediaan → buat/update guest → buat booking
-     */
     public function store(Request $request)
     {
-        // 1. Validasi
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'email'           => 'required|email|max:255',
@@ -42,7 +33,6 @@ class BookingController extends Controller
             'special_request' => 'nullable|string|max:1000',
         ]);
 
-        // 2. Pastikan kamar masih available
         $room = Room::with('roomType')->findOrFail($validated['room_id']);
 
         if ($room->status !== 'available') {
@@ -51,19 +41,16 @@ class BookingController extends Controller
             ]);
         }
 
-        // 3. Hitung total malam & harga (harga diambil dari roomType)
         $checkIn    = Carbon::parse($validated['check_in']);
         $checkOut   = Carbon::parse($validated['check_out']);
         $nights     = $checkIn->diffInDays($checkOut);
         $totalPrice = ($room->roomType->price ?? 0) * $nights;
 
-        // 4. Buat atau update data guest berdasarkan email
         $guest = Guest::updateOrCreate(
             ['email' => $validated['email']],
             ['name'  => $validated['name']]
         );
 
-        // 5. Simpan booking — kolom sesuai migration
         Booking::create([
             'guest_id'    => $guest->id,
             'room_id'     => $validated['room_id'],

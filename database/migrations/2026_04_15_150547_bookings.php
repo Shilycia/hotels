@@ -17,7 +17,6 @@ return new class extends Migration
             $table->enum('status', ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled'])->default('pending');
             $table->decimal('total_price', 12, 2);
             
-            // 🟢 TAMBAHKAN KOLOM INI: Agar sistem bisa menyimpan catatan dari tamu
             $table->text('special_request')->nullable();
             
             $table->timestamps();

@@ -35,7 +35,6 @@ class BookingController extends Controller
                 return response()->json(['message' => 'Kamar tidak tersedia'], 422);
             }
 
-            // Asumsi relasi roomType ada
             $totalPrice = $room->roomType->price ?? 0; 
 
             $booking = Booking::create([

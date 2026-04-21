@@ -116,7 +116,6 @@
                                 Ordered by
                             </div>
                             <div style="font-size:14px;font-weight:700;color:#1a1f2e">
-                                {{-- 🟢 Perbaikan relasi menjadi guest --}}
                                 {{ $order->guest->name ?? session('guest_name') ?? 'Guest' }}
                             </div>
                             <div style="font-size:12px;color:#6c757d">
@@ -171,7 +170,6 @@
                     {{-- Line items --}}
                     <div class="bg-white px-4 py-2">
                         @php
-                            // 🟢 Perbaikan pemanggilan relasi menjadi details
                             $items = $order->details ?? collect([]);
                             $subtotal = 0;
                         @endphp

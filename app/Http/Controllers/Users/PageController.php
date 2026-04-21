@@ -5,9 +5,8 @@ namespace App\Http\Controllers\Users;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Room;
-use App\Models\RoomType;
-use App\Models\RestaurantMenu;          // 🟢 Import Model Restoran
-use App\Models\RestaurantOrder;         // 🟢 Import Model Restoran
+use App\Models\RestaurantMenu;        
+use App\Models\RestaurantOrder;        
 use App\Models\RestaurantOrderDetail;
 use App\Models\User;
 use App\Models\Booking;
@@ -33,10 +32,8 @@ class PageController extends Controller
 
     public function rooms(Request $request)
     {
-        // 1. Mulai Query
         $query = Room::with('roomType')->where('status', 'available');
 
-        // 2. Filter Kapasitas
         if ($request->filled('adult')) {
             $query->whereHas('roomType', function($q) use ($request) {
                 $q->where('adult_capacity', '>=', $request->adult);
@@ -48,7 +45,6 @@ class PageController extends Controller
             });
         }
 
-        // 3. Filter Ketersediaan Tanggal
         if ($request->filled('check_in') && $request->filled('check_out')) {
             $checkIn = Carbon::parse($request->check_in)->format('Y-m-d H:i:s');
             $checkOut = Carbon::parse($request->check_out)->format('Y-m-d H:i:s');
@@ -60,11 +56,9 @@ class PageController extends Controller
             });
         }
 
-        // 4. Fitur Sorting (Pengurutan)
         if ($request->filled('sort')) {
             switch ($request->sort) {
                 case 'price_low':
-                    // Join ke room_types untuk mengurutkan berdasarkan harga
                     $query->join('room_types', 'rooms.room_type_id', '=', 'room_types.id')
                         ->orderBy('room_types.price', 'asc')
                         ->select('rooms.*');
@@ -87,7 +81,6 @@ class PageController extends Controller
             $query->orderBy('created_at', 'desc');
         }
 
-        // 5. Pagination dengan menjaga Query String (agar filter tidak hilang saat pindah page)
         $rooms = $query->paginate(6)->withQueryString();
 
         return view('users.pages.rooms', compact('rooms'));
@@ -135,7 +128,6 @@ class PageController extends Controller
         $checkIn = Carbon::parse($request->check_in);
         $checkOut = Carbon::parse($request->check_out);
 
-        // 3. 🛡️ Proteksi Double Booking
         $isBooked = Booking::where('room_id', $request->room_id)
             ->whereIn('status', ['pending', 'confirmed', 'checked_in']) 
             ->where('check_in', '<', $checkOut->format('Y-m-d H:i:s'))
@@ -215,7 +207,6 @@ class PageController extends Controller
 
         $menus = $query->where('is_available', true)->orderBy('name', 'asc')->paginate(12)->withQueryString();
 
-        // 🟢 TAMBAHAN: Kirim data kamar agar Dropdown Room ID di Modal tidak kosong
         $rooms = Room::where('status', 'occupied')->get(); 
         $activeBooking = null;
         if (session('guest_id')) {
@@ -226,7 +217,6 @@ class PageController extends Controller
         return view('users.pages.restaurant', compact('menus', 'rooms', 'activeBooking'));
     }
 
-    // 🟢 1. Menampilkan Detail Menu
     public function menuDetail($id)
     {
         $menu = RestaurantMenu::findOrFail($id);
@@ -242,21 +232,17 @@ class PageController extends Controller
         return view('users.pages.menu-detail', compact('menu', 'relatedMenus', 'rooms', 'activeBooking'));
     }
 
-    // 🟢 2. Memproses Order (Charge to Room)
-    // 🟢 2. Memproses Order (Charge to Room)
-    // 🟢 2. Memproses Order (Pembayaran Terpisah)
     public function storeRestaurantOrder(Request $request)
     {
         $request->validate([
             'menu_id' => 'required|exists:restaurant_menus,id',
-            'booking_id' => 'required|exists:bookings,id', // 🟢 Validasi wajib ada booking_id
+            'booking_id' => 'required|exists:bookings,id', 
             'qty' => 'required|integer|min:1',
         ]);
 
         $guestId = session('guest_id');
         if (!$guestId) return redirect()->route('guest.login')->with('error', 'Silakan login sebagai tamu.');
 
-        // 🟢 Pastikan booking valid dan aktif milik tamu ini
         $booking = Booking::where('id', $request->booking_id)
                           ->where('guest_id', $guestId)
                           ->whereIn('status', ['confirmed', 'checked_in'])
@@ -265,11 +251,11 @@ class PageController extends Controller
         $paymentId = DB::transaction(function () use ($request, $guestId, $booking) {
             $menu = RestaurantMenu::findOrFail($request->menu_id);
             $subtotal = $menu->price * $request->qty;
-            $totalPrice = $subtotal + round($subtotal * 0.05); // Total + Service Charge 5%
+            $totalPrice = $subtotal + round($subtotal * 0.05); 
 
             $order = RestaurantOrder::create([
                 'guest_id' => $guestId,
-                'room_id' => $booking->room_id, // 🟢 Ambil otomatis dari data kamar yang dipesan
+                'room_id' => $booking->room_id, 
                 'total_price' => $totalPrice,
                 'status' => 'placed', 
                 'notes' => $request->notes 
@@ -282,7 +268,6 @@ class PageController extends Controller
                 'price' => $menu->price,
             ]);
 
-            // 🟢 PEMBAYARAN TERPISAH: Set jadi 'transfer' / 'pending' (bukan lagi charge_to_room)
             $payment = Payment::create([
                 'restaurant_order_id' => $order->id,
                 'amount' => $totalPrice,
@@ -293,12 +278,10 @@ class PageController extends Controller
             return $payment->id;
         });
 
-        // 🟢 Arahkan langsung ke halaman pembayaran (seperti saat booking kamar)
         return redirect()->route('guest.pay', $paymentId)
                          ->with('success', 'Pesanan restoran berhasil dibuat! Silakan selesaikan pembayaran.');
     }
 
-    // 🟢 3. Menampilkan Halaman Konfirmasi Order
     public function orderConfirmation($id)
     {
         $order = RestaurantOrder::with(['guest', 'room', 'details.menu'])->findOrFail($id);
@@ -314,7 +297,6 @@ class PageController extends Controller
 
     public function sendContact(Request $request)
     {
-        // 1. Validasi input
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email',
@@ -336,29 +318,22 @@ class PageController extends Controller
                  ->replyTo($request->email, $request->name);
         });
 
-        // 4. Kembalikan ke halaman form dengan pesan sukses
         return back()->with('success', 'Terima kasih, ' . $request->name . '! Pesan Anda telah kami terima dan terkirim ke tim kami.');
     }
-
-    // 🟢 Menampilkan Profil & Riwayat Transaksi Tamu
     public function guestProfile()
     {
-        // Pastikan tamu sudah login (punya session)
         $guestId = session('guest_id');
         if (!$guestId) {
             return redirect()->route('guest.login')->with('error', 'Silakan login untuk melihat profil dan riwayat transaksi Anda.');
         }
 
-        // Ambil data tamu
         $guest = Guest::findOrFail($guestId);
 
-        // Ambil riwayat booking kamar beserta tagihannya
         $bookings = Booking::with(['room.roomType', 'payment'])
                             ->where('guest_id', $guestId)
                             ->orderBy('created_at', 'desc')
                             ->get();
 
-        // Ambil riwayat pesanan restoran beserta detail dan tagihannya
         $restaurantOrders = RestaurantOrder::with(['details.menu', 'payment'])
                                            ->where('guest_id', $guestId)
                                            ->orderBy('created_at', 'desc')

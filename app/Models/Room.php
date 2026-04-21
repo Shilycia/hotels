@@ -9,7 +9,6 @@ class Room extends Model
 {
     use HasFactory;
 
-    // Tambahkan baris ini untuk mengizinkan mass assignment
     protected $fillable = [
         'room_number',
         'room_type_id',
@@ -17,11 +16,6 @@ class Room extends Model
         'status'
     ];
 
-    /**
-     * Relasi ke model RoomType (Setiap kamar punya satu tipe)
-     */
-
-    // Tambahkan ini di dalam class Room jika belum ada
     public function bookings()
     {
         return $this->hasMany(Booking::class);

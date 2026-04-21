@@ -13,7 +13,7 @@ class Guest extends Model
         'phone',
         'identity_number',
         'address',
-        'photo_url', // Sesuai kolom di SQL kamu
+        'photo_url', 
     ];
     public function bookings()
     {

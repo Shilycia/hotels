@@ -67,37 +67,29 @@
 @endsection
 
 @push('scripts')
-{{-- Load Midtrans Snap.js --}}
-{{-- Catatan: Gunakan URL sandbox untuk testing, dan ganti URL jika sudah production --}}
 <script src="{{ config('midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('midtrans.client_key') }}"></script>
 
 <script>
     const payButton = document.getElementById('pay-button');
     if (payButton) {
         payButton.addEventListener('click', function () {
-            // Trigger popup Midtrans Snap
             window.snap.pay('{{ $snapToken }}', {
                 onSuccess: function(result) {
-                    // Pembayaran berhasil
                     updatePaymentStatus('paid');
                 },
                 onPending: function(result) {
-                    // Menunggu pembayaran (misal transfer bank)
                     updatePaymentStatus('pending');
                 },
                 onError: function(result) {
-                    // Pembayaran gagal
                     updatePaymentStatus('failed');
                 },
                 onClose: function() {
-                    // Popup ditutup tanpa menyelesaikan pembayaran
                     alert('Anda menutup popup sebelum menyelesaikan pembayaran.');
                 }
             });
         });
     }
 
-    // Fungsi untuk mengirim status ke Backend kita (GuestPaymentController)
     function updatePaymentStatus(status) {
         fetch("{{ route('guest.pay.status', $payment->id) }}", {
             method: 'POST',
@@ -110,7 +102,6 @@
         .then(response => response.json())
         .then(data => {
             if(data.success) {
-                // Refresh halaman agar tampilan status berubah
                 window.location.reload();
             }
         })

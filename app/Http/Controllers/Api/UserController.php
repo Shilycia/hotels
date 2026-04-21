@@ -41,6 +41,4 @@ class UserController extends Controller
             'data' => $user->load('roles')
         ], 201);
     }
-
-    // Fungsi update dan delete API bisa ditambahkan dengan logika serupa
 }

@@ -9,7 +9,6 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Mengambil user langsung dari request yang sudah melewati auth:sanctum
         $user = $request->user();
 
         if ($user && $user->hasRole('admin')) {

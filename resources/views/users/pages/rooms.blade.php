@@ -6,7 +6,6 @@
 
 @include('users.components.page-header', ['title' => 'Hotel Rooms', 'breadcrumb' => 'Rooms'])
 
-{{-- 🟢 BLOK FILTER & SORTING PENCARIAN --}}
 <div class="container-fluid bg-white mb-5 wow fadeIn" data-wow-delay="0.1s" style="padding: 35px; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);">
     <div class="container">
         <form action="{{ route('rooms') }}" method="GET">
@@ -69,7 +68,6 @@
         </form>
     </div>
 </div>
-{{-- 🟢 AKHIR BLOK FILTER --}}
 
 <div class="container-fluid py-5">
     <div class="container">
@@ -99,7 +97,6 @@
                             </div>
                         </div>
                         <div class="d-flex mb-3">
-                            {{-- 🟢 Menambahkan ?-> untuk mencegah error jika roomType kosong --}}
                             <small class="border-end me-3 pe-3">
                                 <i class="fa fa-users text-primary me-2"></i>{{ $room->roomType?->adult_capacity ?? 2 }} Adult
                             </small>
@@ -116,7 +113,6 @@
                                href="{{ route('room.detail', $room->id) }}">
                                 View Detail
                             </a>
-                            {{-- 🟢 Mengirim data tanggal pilihan ke form Booking secara otomatis --}}
                             <a class="btn btn-sm btn-dark rounded py-2 px-4"
                                href="{{ route('booking', ['room' => $room->id, 'check_in' => request('check_in'), 'check_out' => request('check_out')]) }}">
                                 Book Now

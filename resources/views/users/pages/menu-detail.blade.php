@@ -22,7 +22,6 @@
                 <div class="position-relative rounded overflow-hidden shadow-sm"
                      style="height:360px;background:#f1f3f5">
                     
-                    {{-- 🟢 Menggunakan foto_url sesuai dengan database --}}
                     @if(!empty($menu->foto_url))
                         <img src="{{ asset($menu->foto_url) }}"
                              alt="{{ $menu->name }}"
@@ -173,9 +172,7 @@
                 {{-- Order Form --}}
                 @if($menu->is_available ?? true)
                 
-                {{-- 🟢 Cek Guest Session (Bukan Auth admin) --}}
                 @if(session('guest_id'))
-                {{-- 🟢 Pastikan action menuju route yang benar (menus.order) --}}
                 {{-- Order Form --}}
                 @if($menu->is_available ?? true)
                 

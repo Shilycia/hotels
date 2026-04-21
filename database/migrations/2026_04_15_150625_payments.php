@@ -6,21 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
             
-            // Tambahkan onDelete('cascade') agar kalau booking dihapus, tagihan ikut terhapus
             $table->foreignId('booking_id')->nullable()->constrained('bookings')->onDelete('cascade');
             $table->foreignId('restaurant_order_id')->nullable()->constrained('restaurant_orders')->onDelete('cascade');
             
             $table->decimal('amount', 12, 2);
             
-            // 🟢 PERBAIKAN: Tambahkan 'charge_to_room' ke dalam daftar ENUM
             $table->enum('payment_method', ['cash', 'transfer', 'credit_card', 'e_wallet', 'charge_to_room']);
             
             $table->enum('payment_status', ['pending', 'paid', 'failed'])->default('pending');
@@ -29,9 +25,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('payments');

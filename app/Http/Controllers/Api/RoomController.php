@@ -9,7 +9,6 @@ class RoomController extends Controller
 {
     public function index()
     {
-        // Hanya tampilkan kamar yang statusnya 'available'
         $rooms = Room::with('roomType')->where('status', 'available')->get();
         
         return response()->json([

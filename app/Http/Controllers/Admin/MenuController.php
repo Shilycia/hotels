@@ -24,15 +24,11 @@ class MenuController extends Controller
             'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        // Jika ada file foto yang diunggah
         if ($request->hasFile('foto_url')) {
             $file = $request->file('foto_url');
-            // Buat nama file unik menggunakan waktu saat ini
             $filename = time() . '_' . $file->getClientOriginalName();
-            // Pindahkan file langsung ke folder public/images/menus
             $file->move(public_path('images/menus'), $filename);
             
-            // Simpan path relatifnya ke database
             $validated['foto_url'] = 'images/menus/' . $filename;
         }
 
@@ -50,9 +46,7 @@ class MenuController extends Controller
             'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        // Jika user mengunggah foto baru saat edit
         if ($request->hasFile('foto_url')) {
-            // Hapus foto lama di folder public jika ada
             if ($menu->foto_url && File::exists(public_path($menu->foto_url))) {
                 File::delete(public_path($menu->foto_url));
             }
@@ -71,7 +65,6 @@ class MenuController extends Controller
 
     public function destroy(RestaurantMenu $menu)
     {
-        // Hapus file fisik foto dari folder public sebelum data dihapus
         if ($menu->foto_url && File::exists(public_path($menu->foto_url))) {
             File::delete(public_path($menu->foto_url));
         }
