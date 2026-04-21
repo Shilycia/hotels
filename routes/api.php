@@ -27,4 +27,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Pesanan Restoran
     Route::post('/restaurant/orders', [RestaurantOrderController::class, 'store']);
+
+    Route::post('/midtrans/callback', [App\Http\Controllers\Admin\PaymentController::class, 'midtransCallback']);
 });

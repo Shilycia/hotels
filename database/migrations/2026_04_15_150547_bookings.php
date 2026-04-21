@@ -6,28 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('guest_id')->constrained('guests');
-            $table->foreignId('room_id')->constrained('rooms');
-            $table->date('check_in');
-            $table->date('check_out');
+            $table->foreignId('guest_id')->constrained('guests')->onDelete('cascade');
+            $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
+            $table->dateTime('check_in');
+            $table->dateTime('check_out');
+            $table->enum('status', ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled'])->default('pending');
             $table->decimal('total_price', 12, 2);
-            $table->enum('status', ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled']);
+            
+            // 🟢 TAMBAHKAN KOLOM INI: Agar sistem bisa menyimpan catatan dari tamu
+            $table->text('special_request')->nullable();
+            
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('bookings');
     }
 };

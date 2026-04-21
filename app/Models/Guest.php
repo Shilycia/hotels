@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class Guest extends Model
 {
     protected $fillable = [
-        'identity_number', 
-        'name', 
-        'email', 
-        'phone', 
-        'address'
+        'name',
+        'email',
+        'password',
+        'phone',
+        'identity_number',
+        'address',
+        'photo_url', // Sesuai kolom di SQL kamu
     ];
     public function bookings()
     {

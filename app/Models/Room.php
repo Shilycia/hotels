@@ -13,12 +13,19 @@ class Room extends Model
     protected $fillable = [
         'room_number',
         'room_type_id',
+        'floor',
         'status'
     ];
 
     /**
      * Relasi ke model RoomType (Setiap kamar punya satu tipe)
      */
+
+    // Tambahkan ini di dalam class Room jika belum ada
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
     public function roomType()
     {
         return $this->belongsTo(RoomType::class);

@@ -18,27 +18,50 @@ class RoomTypeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:room_types,name',
-            'price' => 'required|numeric|min:0',
-            'description' => 'nullable|string'
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric',
+            'bed_type' => 'required|string',
+            'bath_count' => 'required|integer',
+            'description' => 'nullable|string',
+            // 👇 Validasi gambar: maksimal 2MB dan formatnya harus gambar
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', 
         ]);
+
+        // LOGIKA UPLOAD GAMBAR
+        if ($request->hasFile('image')) {
+            // Simpan gambar ke folder 'public/storage/room_images'
+            $imagePath = $request->file('image')->store('room_images', 'public');
+            // Simpan path-nya ke database dengan awalan 'storage/' agar langsung bisa dibaca oleh asset()
+            $validated['image'] = 'storage/' . $imagePath;
+        }
 
         RoomType::create($validated);
 
-        return redirect()->route('admin.room-types')->with('success', 'Tipe kamar baru berhasil ditambahkan!');
+        return redirect()->route('admin.room-types')->with('success', 'Tipe Kamar berhasil ditambahkan!');
     }
 
     public function update(Request $request, RoomType $roomType)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:room_types,name,' . $roomType->id,
-            'price' => 'required|numeric|min:0',
-            'description' => 'nullable|string'
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric',
+            'bed_type' => 'required|string',
+            'bath_count' => 'required|integer',
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
+
+        // LOGIKA UPDATE GAMBAR
+        if ($request->hasFile('image')) {
+            // (Opsional) Kamu bisa menambahkan logika untuk menghapus foto lama di sini
+            
+            $imagePath = $request->file('image')->store('room_images', 'public');
+            $validated['image'] = 'storage/' . $imagePath;
+        }
 
         $roomType->update($validated);
 
-        return redirect()->route('admin.room-types')->with('success', 'Data tipe kamar berhasil diperbarui!');
+        return redirect()->route('admin.room-types')->with('success', 'Tipe Kamar berhasil diperbarui!');
     }
 
     public function destroy(RoomType $roomType)

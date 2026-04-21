@@ -4,52 +4,100 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantOrderDetail;
+use App\Models\RestaurantMenu;
+use App\Models\Guest;
+use App\Models\Payment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    /**
-     * Menampilkan daftar pesanan untuk dikelola oleh Admin
-     */
     public function index()
     {
-        // Mengambil data order, direlasikan dengan data tamu (guest)
-        // dan detail pesanannya (details.menu) agar nama makanan bisa ditampilkan
         $orders = RestaurantOrder::with(['guest', 'details.menu'])
                                  ->orderBy('created_at', 'desc')
-                                 ->get(); // Gunakan paginate(15) jika data sudah sangat banyak
+                                 ->get(); 
+        
+        // Ambil data tamu dan menu untuk ditampilkan di form Tambah Order
+        $guests = Guest::orderBy('name', 'asc')->get();
+        $menus = RestaurantMenu::orderBy('name', 'asc')->get();
 
-        return view('admin.order.index', compact('orders'));
+        return view('admin.order.index', compact('orders', 'guests', 'menus'));
     }
 
-    /**
-     * Memperbarui status pesanan (diakses dari Modal Update Status)
-     */
+    // 🟢 FUNGSI BARU UNTUK MENAMBAH ORDER MANUAL 🟢
+    public function store(Request $request)
+    {
+        $request->validate([
+            'guest_id' => 'required|exists:guests,id',
+            'menu_id' => 'required|array',
+            'menu_id.*' => 'required|exists:restaurant_menus,id',
+            'qty' => 'required|array',
+            'qty.*' => 'required|integer|min:1',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            // 1. Buat Order Utama
+            $order = RestaurantOrder::create([
+                'guest_id'    => $request->guest_id,
+                'total_price' => 0, 
+                'status'      => 'ordered',
+            ]);
+
+            $totalPrice = 0;
+
+            // 2. Looping item yang dipesan
+            foreach ($request->menu_id as $index => $menuId) {
+                $qty = $request->qty[$index];
+                $menu = RestaurantMenu::find($menuId);
+                $subtotal = $menu->price * $qty;
+                
+                RestaurantOrderDetail::create([
+                    'restaurant_order_id' => $order->id,
+                    'restaurant_menu_id'  => $menu->id,
+                    'quantity'            => $qty,
+                    'price'               => $menu->price, // Kunci harga saat ini
+                ]);
+
+                $totalPrice += $subtotal;
+            }
+
+            // 3. Update Total Harga
+            $order->update(['total_price' => $totalPrice]);
+
+            // 4. Buat Tagihan (Payment) Otomatis
+            Payment::create([
+                'restaurant_order_id' => $order->id,
+                'amount'              => $totalPrice,
+                'payment_status'      => 'pending',
+                'payment_method'      => 'transfer', 
+            ]);
+        });
+
+        return redirect()->route('admin.orders')->with('success', 'Orderan restoran baru berhasil ditambahkan dan tagihan telah dibuat!');
+    }
+
     public function update(Request $request, RestaurantOrder $order)
     {
-        // Validasi ketat agar status yang masuk hanya 'ordered' atau 'paid'
-        // sesuai dengan enum di file migration kamu.
-        $request->validate([
-            'status' => 'required|in:ordered,paid',
-        ]);
+        $request->validate(['status' => 'required|in:ordered,paid']);
+        $order->update(['status' => $request->status]);
 
-        // Simpan perubahan status ke database
-        $order->update([
-            'status' => $request->status
-        ]);
-
-        return redirect()->route('admin.orders')->with('success', 'Status pesanan restoran berhasil diperbarui!');
+        $payment = Payment::where('restaurant_order_id', $order->id)->first();
+        if ($payment) {
+            if ($request->status === 'paid') {
+                $payment->update(['payment_status' => 'paid']);
+            } elseif ($request->status === 'ordered') {
+                $payment->update(['payment_status' => 'pending']);
+            }
+        }
+        return redirect()->route('admin.orders')->with('success', 'Status pesanan restoran dan tagihannya berhasil diperbarui!');
     }
 
-    /**
-     * Menghapus data pesanan restoran
-     */
     public function destroy(RestaurantOrder $order)
     {
-        // Berkat fungsi onDelete('cascade') di migration restaurant_order_details,
-        // saat kita menghapus order utama, semua detail item yang dipesan akan otomatis terhapus.
+        Payment::where('restaurant_order_id', $order->id)->delete();
         $order->delete();
-        
-        return redirect()->route('admin.orders')->with('success', 'Data pesanan berhasil dihapus permanen.');
+        return redirect()->route('admin.orders')->with('success', 'Data pesanan dan riwayat tagihannya berhasil dihapus permanen.');
     }
 }

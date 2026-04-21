@@ -1,10 +1,10 @@
-@extends('layouts.app')
+@extends('users.layouts.app')
 
 @section('title', $room->name . ' - Hotelier')
 
 @section('content')
 
-@include('components.page-header', [
+@include('users.components.page-header', [
     'title' => $room->name,
     'breadcrumb' => $room->name,
     'parent' => 'Rooms',
@@ -25,7 +25,7 @@
                         </div>
                         @endforeach
                     </div>
-                    @if(($room->images ?? [])->count() > 1)
+                    @if(count($room->images ?? [$room->image]) > 1)
                     <button class="carousel-control-prev" type="button" data-bs-target="#roomCarousel" data-bs-slide="prev">
                         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                     </button>

@@ -1,10 +1,18 @@
-@extends('layouts.app')
+@extends('users.layouts.app')
 
 @section('title', 'Book A Room - Hotelier')
 
 @section('content')
 
-@include('components.page-header', ['title' => 'Book A Room', 'breadcrumb' => 'Booking'])
+@include('users.components.page-header', ['title' => 'Book A Room', 'breadcrumb' => 'Booking'])
+
+{{-- 🟢 TRIK UX: Ambil data tamu jika mereka sudah login via GuestAuthController --}}
+@php
+    $loggedInGuest = null;
+    if(session('guest_id')) {
+        $loggedInGuest = \App\Models\Guest::find(session('guest_id'));
+    }
+@endphp
 
 <div class="container-fluid py-5">
     <div class="container">
@@ -30,7 +38,8 @@
                                class="form-control @error('name') is-invalid @enderror"
                                id="name"
                                placeholder="Your Name"
-                               value="{{ old('name') }}">
+                               {{-- 🟢 AUTO-FILL NAMA --}}
+                               value="{{ old('name', $loggedInGuest ? $loggedInGuest->name : '') }}">
                         <label for="name">Your Name</label>
                         @error('name')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -44,7 +53,10 @@
                                class="form-control @error('email') is-invalid @enderror"
                                id="email"
                                placeholder="Your Email"
-                               value="{{ old('email') }}">
+                               {{-- 🟢 AUTO-FILL EMAIL --}}
+                               value="{{ old('email', $loggedInGuest ? $loggedInGuest->email : '') }}"
+                               {{-- Kunci email jika sudah login agar tidak diubah sembarangan --}}
+                               {{ $loggedInGuest ? 'readonly' : '' }}>
                         <label for="email">Your Email</label>
                         @error('email')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -110,7 +122,7 @@
                             @foreach($rooms ?? [] as $room)
                             <option value="{{ $room->id }}"
                                 {{ (old('room_id', request('room')) == $room->id) ? 'selected' : '' }}>
-                                {{ $room->name }} - Rp {{ number_format($room->price) }}/Night
+                                {{ $room->name }} - Rp {{ number_format($room->price, 0, ',', '.') }}/Night
                             </option>
                             @endforeach
                         </select>

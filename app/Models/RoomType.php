@@ -11,9 +11,7 @@ class RoomType extends Model
 
     // Tambahkan baris ini untuk mengizinkan kolom diisi
     protected $fillable = [
-        'name',
-        'price',
-        'description'
+        'name', 'price', 'adult_capacity', 'child_capacity', 'description', 'foto', 'rating', 'bed_type', 'bath_count'
     ];
 
     /**

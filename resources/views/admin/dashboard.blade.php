@@ -11,7 +11,7 @@
         </div>
         <div class="stat-value">{{ number_format($widgets['total_users'] ?? 0) }}</div>
         <div class="stat-footer">
-            <span class="stat-neutral">Akun terdaftar</span>
+            <span class="stat-neutral">Akun Staff & Admin</span>
         </div>
     </div>
 
@@ -25,7 +25,7 @@
             <sub>/ {{ $widgets['total_rooms'] ?? 0 }}</sub>
         </div>
         <div class="stat-footer">
-            <span class="stat-neutral">Occupancy hari ini</span>
+            <span class="stat-neutral">Occupancy kamar saat ini</span>
         </div>
     </div>
 
@@ -34,10 +34,9 @@
             <div class="stat-label">Order Restoran</div>
             <div class="stat-icon clay"><i class="fas fa-utensils"></i></div>
         </div>
-        <div class="stat-value">328</div>
+        <div class="stat-value">{{ number_format($widgets['total_resto_orders']) }}</div>
         <div class="stat-footer">
-            <span class="stat-up"><i class="fas fa-arrow-trend-up"></i> +12.5%</span>
-            <span class="stat-neutral">bulan ini</span>
+            <span class="stat-neutral">Total order tercatat</span>
         </div>
     </div>
 
@@ -48,7 +47,7 @@
         </div>
         <div class="stat-value sm">Rp {{ number_format($widgets['total_revenue'] ?? 0, 0, ',', '.') }}</div>
         <div class="stat-footer">
-            <span class="stat-up"><i class="fas fa-arrow-trend-up"></i> Lunas</span>
+            <span class="stat-up"><i class="fas fa-arrow-trend-up"></i> Akumulasi Transaksi Lunas</span>
         </div>
     </div>
 </div>
@@ -58,7 +57,7 @@
         <div class="card-header">
             <div>
                 <div class="card-title">Tren Pendapatan</div>
-                <div class="card-sub">Booking per bulan</div>
+                <div class="card-sub">Booking 6 Bulan Terakhir</div>
             </div>
         </div>
         <canvas id="incomeChart" height="90"></canvas>
@@ -68,7 +67,7 @@
         <div class="card-header">
             <div>
                 <div class="card-title">Komposisi Pendapatan</div>
-                <div class="card-sub">Sumber pendapatan</div>
+                <div class="card-sub">Booking vs Restoran</div>
             </div>
         </div>
         <canvas id="donutChart" height="160"></canvas>
@@ -103,28 +102,22 @@
                 @forelse($recentBookings as $booking)
                 <tr>
                     <td><strong style="color:var(--ink);font-size:12px;">#B-{{ str_pad($booking->id, 4, '0', STR_PAD_LEFT) }}</strong></td>
-                    <td style="font-weight:500;color:var(--ink)">{{ $booking->user->name ?? 'Tamu Tidak Diketahui' }}</td>
+                    <td style="font-weight:500;color:var(--ink)">{{ $booking->guest->name ?? 'Tamu Tidak Diketahui' }}</td>
                     <td>{{ $booking->room->room_number ?? 'Kamar Dihapus' }}</td>
                     <td>
-                        @if($booking->payment_status == 'paid')
-                            <span class="badge badge-paid">Lunas</span>
-                        @elseif($booking->payment_status == 'pending')
-                            <span class="badge badge-pending">Pending</span>
+                        {{-- Mengikuti status enum database yang kita pakai sekarang --}}
+                        @if(in_array($booking->status, ['confirmed', 'checked_in', 'checked_out']))
+                            <span class="badge badge-paid" style="background:#c8d8b8; color:#4a7c59; padding:4px 8px; border-radius:4px;">Confirmed/Paid</span>
+                        @elseif($booking->status == 'pending')
+                            <span class="badge badge-pending" style="background:#fdebd0; color:#c07850; padding:4px 8px; border-radius:4px;">Waiting Payment</span>
                         @else
-                            <span class="badge badge-cancelled">Batal</span>
+                            <span class="badge badge-cancelled" style="background:#f5c6cb; color:#721c24; padding:4px 8px; border-radius:4px;">Batal/Gagal</span>
                         @endif
                     </td>
                     <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($booking->total_price ?? 0, 0, ',', '.') }}</td>
                 </tr>
                 @empty
-                <tr>
-                    <td colspan="5">
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-times"></i>
-                            <p>Belum ada data booking terbaru.</p>
-                        </div>
-                    </td>
-                </tr>
+                {{-- Empty state tetap sama --}}
                 @endforelse
             </tbody>
         </table>
@@ -141,14 +134,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const clay       = '#c07850';
     const ink3       = '#9e9088';
 
+    // Ambil data dinamis dari Controller yang di-inject via PHP
+    const chartLabels = {!! json_encode($chartLabels) !!};
+    const chartDataValues = {!! json_encode($chartData) !!};
+    const donutDataValues = {!! json_encode($donutData) !!};
+
     const ctxLine = document.getElementById('incomeChart').getContext('2d');
     new Chart(ctxLine, {
         type: 'bar',
         data: {
-            labels: ['Nov', 'Des', 'Jan', 'Feb', 'Mar', 'Apr'],
+            labels: chartLabels, // <-- Data dinamis
             datasets: [{
-                label: 'Booking',
-                data: [32, 28, 45, 38, 52, 57],
+                label: 'Jumlah Booking',
+                data: chartDataValues, // <-- Data dinamis
                 backgroundColor: ['#c8d8b8','#c8d8b8','#b5cba3','#c8d8b8','#8ab87a', mossFull],
                 borderRadius: 4,
                 borderSkipped: false,
@@ -158,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, grid: { color: sandStroke }, ticks: { color: ink3, font: { size: 10 } } },
+                y: { beginAtZero: true, grid: { color: sandStroke }, ticks: { color: ink3, font: { size: 10 }, precision: 0 } },
                 x: { grid: { display: false }, ticks: { color: ink3, font: { size: 10 } } }
             }
         }
@@ -168,9 +166,9 @@ document.addEventListener("DOMContentLoaded", function () {
     new Chart(ctxDonut, {
         type: 'doughnut',
         data: {
-            labels: ['Booking', 'Restoran'],
+            labels: ['Booking Kamar', 'Order Restoran'],
             datasets: [{
-                data: [68, 32],
+                data: donutDataValues, // <-- Data dinamis
                 backgroundColor: [mossFull, clay],
                 borderWidth: 0,
                 hoverOffset: 5

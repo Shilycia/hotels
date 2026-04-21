@@ -1,11 +1,12 @@
 {{-- Page Header Component --}}
-{{-- Usage: @include('components.page-header', ['title' => 'About Us', 'breadcrumb' => 'About']) --}}
+{{-- Usage: @include('users.components.page-header', ['title' => 'About Us', 'breadcrumb' => 'About']) --}}
+{{-- Optional: pass 'parent' and 'parentUrl' for nested breadcrumb --}}
 
 <div class="container-fluid page-header wow fadeIn" data-wow-delay="0.1s">
     <div class="container">
         <h1 class="display-3 mb-3 animated slideInDown">{{ $title ?? 'Page Title' }}</h1>
-        <nav aria-label="breadcrumb animated slideInDown">
-            <ol class="breadcrumb mb-0">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0 animated slideInDown">
                 <li class="breadcrumb-item">
                     <a class="text-white" href="{{ route('home') }}">Home</a>
                 </li>

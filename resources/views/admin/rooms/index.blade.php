@@ -15,6 +15,7 @@
         background: #fff; border-radius: var(--radius); width: 100%; max-width: 460px;
         padding: 24px; border: 1px solid var(--sand2);
         transform: translateY(16px); transition: transform 0.25s ease;
+        max-height: 90vh; overflow-y: auto; /* ✅ Tambah agar bisa scroll jika form panjang */
     }
     .modal-overlay.show .modal-content { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -42,6 +43,17 @@
 @endif
 @if(session('error'))
     <div class="alert alert-error" style="margin-bottom:16px"><i class="fas fa-exclamation-circle"></i> {{ session('error') }}</div>
+@endif
+{{-- ✅ Tambah: tampilkan error validasi dari controller --}}
+@if($errors->any())
+    <div class="alert alert-error" style="margin-bottom:16px">
+        <div style="font-weight:bold;margin-bottom:5px"><i class="fas fa-exclamation-triangle"></i> Gagal menyimpan data:</div>
+        <ul style="margin:0;padding-left:20px;font-size:13px">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
 @endif
 
 <div class="section-header">
@@ -91,14 +103,21 @@
                     <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($room->roomType->price ?? 0, 0, ',', '.') }}</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
+                            {{-- ✅ FIX: Kirim integer ID tanpa quote agar JS tidak salah casting --}}
                             <button class="btn btn-outline btn-sm"
-                                onclick="openEditModal('{{ $room->id }}','{{ $room->room_number }}','{{ $room->room_type_id }}','{{ $room->floor }}','{{ $room->status }}')">
+                                onclick="openEditModal(
+                                    '{{ $room->id }}',
+                                    '{{ addslashes($room->room_number) }}',
+                                    '{{ $room->room_type_id }}',
+                                    '{{ $room->floor ?? null }}',
+                                    '{{ $room->status }}'
+                                )">
                                 <i class="fas fa-pen"></i>
                             </button>
                             <form id="delete-form-{{ $room->id }}" action="{{ route('admin.rooms.destroy', $room->id) }}" method="POST" style="display:none">
                                 @csrf @method('DELETE')
                             </form>
-                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ $room->id }}')">
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ $room->id }}', '{{ $room->room_number }}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -117,6 +136,13 @@
             </tbody>
         </table>
     </div>
+
+    {{-- ✅ Tambah: pagination sesuai controller yang pakai paginate(10) --}}
+    @if(isset($rooms) && method_exists($rooms, 'links'))
+    <div style="padding:12px 20px;border-top:1px solid var(--sand2)">
+        {{ $rooms->links() }}
+    </div>
+    @endif
 </div>
 
 {{-- Modal Tambah --}}
@@ -143,11 +169,12 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Lantai</label>
-                <input type="number" name="floor" class="form-control" placeholder="Contoh: 3" min="1">
+                {{-- ✅ Sesuai validasi controller: required|integer|min:1 --}}
+                <input type="number" name="floor" class="form-control" placeholder="Contoh: 3" min="1" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Status</label>
-                <select name="status" class="form-control">
+                <select name="status" class="form-control" required>
                     <option value="available">Tersedia</option>
                     <option value="occupied">Terisi</option>
                     <option value="maintenance">Maintenance</option>
@@ -168,7 +195,8 @@
             <div class="modal-title">Edit Kamar</div>
             <button class="btn-close" onclick="closeModal('modalEdit')"><i class="fas fa-times"></i></button>
         </div>
-        <form id="formEditRoom" method="POST">
+        {{-- ✅ FIX: Tambah data-base-url agar action URL tidak hardcode --}}
+        <form id="formEditRoom" method="POST" data-base-url="{{ url('admin/rooms') }}">
             @csrf @method('PUT')
             <div class="form-group">
                 <label class="form-label">Nomor Kamar</label>
@@ -185,11 +213,12 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Lantai</label>
-                <input type="number" name="floor" id="edit_floor" class="form-control" min="1">
+                {{-- ✅ Sesuai validasi controller: required|integer|min:1 --}}
+                <input type="number" name="floor" id="edit_floor" class="form-control" min="1" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Status</label>
-                <select name="status" id="edit_status" class="form-control">
+                <select name="status" id="edit_status" class="form-control" required>
                     <option value="available">Tersedia</option>
                     <option value="occupied">Terisi</option>
                     <option value="maintenance">Maintenance</option>
@@ -211,18 +240,21 @@
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
     function openEditModal(id, roomNumber, typeId, floor, status) {
-        document.getElementById('edit_room_number').value = roomNumber;
+        document.getElementById('edit_room_number').value  = roomNumber;
         document.getElementById('edit_room_type_id').value = typeId;
-        document.getElementById('edit_floor').value = floor;
-        document.getElementById('edit_status').value = status;
-        document.getElementById('formEditRoom').action = '/admin/rooms/' + id;
+        document.getElementById('edit_floor').value        = floor || '';
+        document.getElementById('edit_status').value       = status;
+
+        const baseUrl = document.getElementById('formEditRoom').dataset.baseUrl;
+        document.getElementById('formEditRoom').action = baseUrl + '/' + id;
+
         openModal('modalEdit');
     }
 
-    function confirmDelete(id) {
+    function confirmDelete(id, roomNumber) {
         Swal.fire({
             title: 'Hapus Kamar?',
-            text: 'Kamar yang memiliki riwayat booking tidak dapat dihapus.',
+            text: 'Kamar ' + roomNumber + ' akan dihapus. Kamar yang memiliki riwayat booking tidak dapat dihapus.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#c07850',

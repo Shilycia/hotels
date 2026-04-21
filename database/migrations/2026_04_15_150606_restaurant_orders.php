@@ -6,25 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('restaurant_orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('guest_id')->constrained('guests');
+            $table->foreignId('guest_id')->constrained('guests')->onDelete('cascade');
+            
+            $table->foreignId('room_id')->nullable()->constrained('rooms')->nullOnDelete();
+            
             $table->decimal('total_price', 12, 2);
-            $table->enum('status', ['ordered', 'paid']);
+            $table->enum('status', ['placed', 'preparing', 'on_the_way', 'delivered', 'paid'])->default('placed');
+            
+            $table->text('notes')->nullable();
+            
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('restaurant_orders');
     }
 };

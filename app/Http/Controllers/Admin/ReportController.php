@@ -26,8 +26,8 @@ class ReportController extends Controller
         $end = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : now()->endOfMonth();
 
         $payments = Payment::whereBetween('created_at', [$start, $end])
-                    ->where('payment_status', 'paid')
-                    ->get();
+                            ->where('payment_status', 'paid')
+                            ->get();
 
         $bookingIncome = $payments->whereNotNull('booking_id')->sum('amount');
         $restoIncome = $payments->whereNotNull('restaurant_order_id')->sum('amount');

@@ -15,6 +15,7 @@
         background: #fff; border-radius: var(--radius); width: 100%; max-width: 460px;
         padding: 24px; border: 1px solid var(--sand2);
         transform: translateY(16px); transition: transform 0.25s ease;
+        max-height: 90vh; overflow-y: auto;
     }
     .modal-overlay.show .modal-content { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -39,6 +40,10 @@
         font-size: 12px; font-weight: 500; flex-shrink: 0;
     }
     .user-cell { display: flex; align-items: center; gap: 9px; }
+    .user-photo {
+        width: 32px; height: 32px; border-radius: 50%;
+        object-fit: cover; flex-shrink: 0; border: 1px solid var(--sand3);
+    }
 </style>
 
 @if(session('success'))
@@ -96,20 +101,31 @@
                     <td style="font-size:12px;font-weight:500;color:var(--ink)">#U-{{ str_pad($user->id, 4, '0', STR_PAD_LEFT) }}</td>
                     <td>
                         <div class="user-cell">
-                            <div class="user-initials">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
+                            @if($user->foto)
+                                <img src="{{ asset($user->foto) }}" alt="Foto {{ $user->name }}" class="user-photo">
+                            @else
+                                <div class="user-initials">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
+                            @endif
                             <span style="font-weight:500;color:var(--ink)">{{ $user->name }}</span>
                         </div>
                     </td>
                     <td style="color:var(--ink3)">{{ $user->email }}</td>
                     <td>
-                        <span class="badge badge-info">{{ $user->roles->first()->name ?? 'No Role' }}</span>
+                        {{-- ✅ FIX: Akses nama role lewat relasi, bukan langsung $user->role --}}
+                        <span class="badge badge-info">{{ ucfirst($user->role->name ?? '-') }}</span>
                     </td>
                     <td style="font-size:12px;color:var(--ink3)">{{ $user->created_at->format('d M Y') }}</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
                             <button class="btn btn-outline btn-sm"
                                     title="Edit User"
-                                    onclick="openEditModal('{{ $user->id }}', '{{ addslashes($user->name) }}', '{{ $user->email }}', '{{ $user->roles->first()->id ?? null }}')">
+                                    onclick="openEditModal(
+                                        '{{ $user->id }}',
+                                        '{{ addslashes($user->name) }}',
+                                        '{{ $user->email }}',
+                                        '{{ $user->role_id ?? null }}',
+                                        '{{ $user->foto ?? null }}'
+                                    )">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <form id="delete-form-{{ $user->id }}" action="{{ route('admin.users.destroy', $user->id) }}" method="POST" style="display:none">
@@ -149,8 +165,12 @@
             <div class="modal-title">Tambah User Baru</div>
             <button class="btn-close" onclick="closeModal('modalAdd')"><i class="fas fa-times"></i></button>
         </div>
-        <form action="{{ route('admin.users.store') }}" method="POST">
+        <form action="{{ route('admin.users.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
+            <div class="form-group">
+                <label class="form-label">Foto Profil (Opsional)</label>
+                <input type="file" name="foto" class="form-control" accept="image/*">
+            </div>
             <div class="form-group">
                 <label class="form-label">Nama Lengkap</label>
                 <input type="text" name="name" class="form-control" placeholder="Nama lengkap" required>
@@ -172,7 +192,7 @@
                 <select name="role_id" class="form-control" required>
                     <option value="">-- Pilih Role --</option>
                     @foreach($roles as $role)
-                        <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
+                        <option value="{{ $role->id }}">{{ $role->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -191,8 +211,19 @@
             <div class="modal-title">Edit User</div>
             <button class="btn-close" onclick="closeModal('modalEdit')"><i class="fas fa-times"></i></button>
         </div>
-        <form id="formEditUser" method="POST">
+        {{-- ✅ FIX: Tambah data-base-url agar action URL dibentuk dinamis di JS --}}
+        <form id="formEditUser" method="POST" enctype="multipart/form-data"
+              data-base-url="{{ url('admin/users') }}">
             @csrf @method('PUT')
+            <div class="form-group text-center">
+                {{-- Preview Foto Lama --}}
+                <img id="edit_foto_preview" src="" alt="Preview"
+                     style="width:80px;height:80px;border-radius:50%;object-fit:cover;display:none;margin:0 auto 10px auto;border:1px solid var(--sand3);">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Foto Profil <span style="color:var(--ink3);font-weight:400">(kosongkan jika tidak diubah)</span></label>
+                <input type="file" name="foto" class="form-control" accept="image/*">
+            </div>
             <div class="form-group">
                 <label class="form-label">Nama Lengkap</label>
                 <input type="text" name="name" id="edit_name" class="form-control" required>
@@ -211,10 +242,11 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Role</label>
-                <select name="role_id" id="edit_role_id" class="form-control">
+                {{-- ✅ FIX: id="edit_role_id" sesuai dengan yang diisi di JS --}}
+                <select name="role_id" id="edit_role_id" class="form-control" required>
                     <option value="">-- Pilih Role --</option>
                     @foreach($roles as $role)
-                        <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
+                        <option value="{{ $role->id }}">{{ $role->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -233,11 +265,29 @@
     function openModal(id)  { document.getElementById(id).classList.add('show'); }
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-    function openEditModal(id, name, email, roleId) {
-        document.getElementById('edit_name').value = name;
+    function openEditModal(id, name, email, roleId, foto) {
+        // ✅ FIX: Isi field sesuai id elemen yang benar
+        document.getElementById('edit_name').value  = name;
         document.getElementById('edit_email').value = email;
-        document.getElementById('edit_role_id').value = roleId;
-        document.getElementById('formEditUser').action = '/admin/users/' + id;
+
+        // ✅ FIX: Set value select role_id dengan integer roleId dari server
+        const roleSelect = document.getElementById('edit_role_id');
+        roleSelect.value = roleId || '';
+
+        // ✅ FIX: Bangun action URL dari data-base-url agar tidak hardcode
+        const baseUrl = document.getElementById('formEditUser').dataset.baseUrl;
+        document.getElementById('formEditUser').action = baseUrl + '/' + id;
+
+        // Tampilkan preview foto lama jika ada
+        const preview = document.getElementById('edit_foto_preview');
+        if (foto && foto !== 'null' && foto !== '') {
+            preview.src = '/' + foto;
+            preview.style.display = 'block';
+        } else {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+
         openModal('modalEdit');
     }
 

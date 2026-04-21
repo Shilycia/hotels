@@ -3,613 +3,533 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Login Admin - Hotel Neo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Login Admin – Hotel Neo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
-            --color-info: #17c1e8;
-            --color-info-dark: #0ea5e4;
-            --color-primary: #cb0c9f;
-            --color-dark: #344767;
-            --color-text: #67748e;
-            --color-light: #f8f9fa;
-            --gradient-info: linear-gradient(310deg, #2152ff, #21d4fd);
-            --gradient-primary: linear-gradient(310deg, #7928ca, #ff0080);
-            --shadow-card: 0 20px 27px 0 rgba(0,0,0,.05);
-            --shadow-colored: 0 4px 7px -1px rgba(0,0,0,.11), 0 2px 4px -1px rgba(0,0,0,.07);
-            --border-radius: 1rem;
+            --sand: #f7f3ee;
+            --sand2: #ede8e0;
+            --sand3: #e4ddd3;
+            --stone: #c8bfb0;
+            --bark: #8b7355;
+            --bark-soft: #f4ede4;
+            --moss: #4a7c59;
+            --moss-soft: #edf4ef;
+            --clay: #c07850;
+            --clay-soft: #fdf0e8;
+            --ink: #2c2420;
+            --ink2: #6b5e54;
+            --ink3: #9e9088;
+            --sidebar-bg: #2c2820;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        *, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { height: 100%; }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8f9fa;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--sand);
             min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* ── Background Split ── */
-        .page-wrapper {
             display: flex;
-            min-height: 100vh;
+            color: var(--ink);
         }
 
-        .bg-left {
-            position: fixed;
-            top: 0; left: 0;
-            width: 40%;
-            height: 100%;
-            background: var(--gradient-info);
-            z-index: 0;
+        /* ── Left panel ── */
+        .panel-left {
+            width: 420px;
+            flex-shrink: 0;
+            background: var(--sidebar-bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 48px 44px;
+            position: relative;
             overflow: hidden;
         }
 
-        .bg-left::before {
+        .panel-left::before {
             content: '';
             position: absolute;
-            width: 380px; height: 380px;
+            top: -100px; left: -100px;
+            width: 320px; height: 320px;
             border-radius: 50%;
-            background: rgba(255,255,255,.08);
-            top: -80px; left: -80px;
+            background: rgba(200,169,110,0.06);
+            pointer-events: none;
         }
 
-        .bg-left::after {
+        .panel-left::after {
             content: '';
             position: absolute;
-            width: 280px; height: 280px;
+            bottom: -80px; right: -80px;
+            width: 260px; height: 260px;
             border-radius: 50%;
-            background: rgba(255,255,255,.06);
-            bottom: 60px; right: -60px;
+            background: rgba(74,124,89,0.07);
+            pointer-events: none;
         }
 
-        .bg-left-inner {
-            position: absolute;
-            inset: 0;
+        .panel-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin-bottom: 56px;
+        }
+
+        .panel-brand-icon {
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            background: #c8a96e;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .panel-brand-icon i { font-size: 14px; color: #2c2820; }
+
+        .panel-brand-name {
+            font-family: 'Lora', serif;
+            font-size: 17px;
+            color: #f0ebe3;
+            font-style: italic;
+        }
+
+        .panel-brand-sub {
+            font-size: 10px;
+            color: rgba(240,235,227,0.3);
+            margin-top: 2px;
+            letter-spacing: 0.9px;
+            text-transform: uppercase;
+        }
+
+        /* Hotel illustration */
+        .panel-illustration {
+            flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 3rem;
-            z-index: 1;
-            text-align: center;
         }
 
-        .brand-logo {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .brand-logo .logo-icon {
-            width: 48px; height: 48px;
-            background: rgba(255,255,255,.25);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(6px);
-            font-size: 1.4rem;
-            color: #fff;
-        }
-
-        .brand-logo span {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: -.3px;
-        }
-
-        .bg-illustration {
-            width: 220px;
-            opacity: .9;
-            margin-bottom: 2rem;
-            filter: drop-shadow(0 20px 40px rgba(0,0,0,.2));
-            animation: float 4s ease-in-out infinite;
+        .hotel-svg {
+            width: 200px;
+            margin-bottom: 32px;
+            animation: float 5s ease-in-out infinite;
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-14px); }
+            50%       { transform: translateY(-10px); }
         }
 
-        .bg-left h2 {
-            color: #fff;
-            font-size: 1.6rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: .75rem;
+        .panel-headline {
+            font-family: 'Lora', serif;
+            font-size: 22px;
+            color: #f0ebe3;
+            font-weight: 400;
+            font-style: italic;
+            text-align: center;
+            line-height: 1.4;
+            margin-bottom: 10px;
         }
 
-        .bg-left p {
-            color: rgba(255,255,255,.78);
-            font-size: .92rem;
+        .panel-desc {
+            font-size: 12.5px;
+            color: rgba(240,235,227,0.45);
+            text-align: center;
             line-height: 1.7;
-            max-width: 280px;
+            max-width: 260px;
         }
 
-        /* ── Right Content ── */
-        .content-right {
-            margin-left: 40%;
+        /* ── Right panel ── */
+        .panel-right {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 2rem;
-            position: relative;
-            z-index: 1;
+            padding: 40px 32px;
+            background: var(--sand);
         }
 
         .login-card {
             width: 100%;
-            max-width: 420px;
-            background: #fff;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-card);
-            padding: 2.5rem;
-            animation: slideUp .5s cubic-bezier(.23,1,.32,1) both;
+            max-width: 400px;
+            animation: fadeUp .35s ease both;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(24px); }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        .card-header-area {
-            margin-bottom: 1.8rem;
-        }
-
-        .card-header-area .badge-top {
+        .card-eyebrow {
             display: inline-block;
-            background: linear-gradient(310deg,#2152ff15,#21d4fd25);
-            color: var(--color-info-dark);
-            font-size: .72rem;
-            font-weight: 600;
-            padding: .3rem .85rem;
-            border-radius: 50px;
-            letter-spacing: .5px;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--bark);
+            letter-spacing: 1.2px;
             text-transform: uppercase;
-            margin-bottom: .85rem;
+            margin-bottom: 10px;
+            padding: 3px 10px;
+            background: var(--bark-soft);
+            border-radius: 50px;
         }
 
-        .card-header-area h3 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: var(--color-dark);
-            margin-bottom: .4rem;
-            background: var(--gradient-info);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .card-header-area p {
-            font-size: .875rem;
-            color: var(--color-text);
+        .card-title {
+            font-family: 'Lora', serif;
+            font-size: 28px;
+            color: var(--ink);
             font-weight: 400;
+            font-style: italic;
+            margin-bottom: 6px;
+            line-height: 1.2;
         }
 
-        /* ── Form ── */
-        .form-group {
-            margin-bottom: 1.1rem;
+        .card-subtitle {
+            font-size: 13px;
+            color: var(--ink3);
+            margin-bottom: 32px;
+            line-height: 1.6;
         }
 
-        .form-group label {
+        /* Alert */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            margin-bottom: 16px;
+        }
+
+        .alert-error {
+            background: #fceee9;
+            color: #8a3a24;
+            border: 1px solid #f5c4b0;
+        }
+
+        .alert-success {
+            background: var(--moss-soft);
+            color: #2e6644;
+            border: 1px solid #b7d8c2;
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 16px; }
+
+        .form-label {
             display: block;
-            font-size: .8rem;
-            font-weight: 600;
-            color: var(--color-dark);
-            margin-bottom: .45rem;
-            letter-spacing: .3px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--ink2);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .input-wrapper {
-            position: relative;
-        }
+        .input-wrap { position: relative; }
 
-        .input-wrapper .input-icon {
+        .input-icon {
             position: absolute;
-            left: 1rem;
-            top: 50%;
+            left: 13px; top: 50%;
             transform: translateY(-50%);
-            color: #adb5bd;
-            font-size: .85rem;
+            font-size: 12px;
+            color: var(--stone);
             pointer-events: none;
             transition: color .2s;
         }
 
-        .input-wrapper .toggle-pw {
+        .toggle-pw {
             position: absolute;
-            right: 1rem;
-            top: 50%;
+            right: 13px; top: 50%;
             transform: translateY(-50%);
-            color: #adb5bd;
-            font-size: .85rem;
+            font-size: 12px;
+            color: var(--stone);
             cursor: pointer;
             transition: color .2s;
         }
 
+        .toggle-pw:hover { color: var(--bark); }
+
         .form-control {
             width: 100%;
-            padding: .75rem 1rem .75rem 2.7rem;
-            font-family: inherit;
-            font-size: .875rem;
-            font-weight: 400;
-            color: var(--color-dark);
-            background: #fff;
-            border: 1px solid #e6e9ed;
-            border-radius: .65rem;
+            padding: 10px 13px 10px 36px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            color: var(--ink);
+            background: #ffffff;
+            border: 1px solid var(--sand3);
+            border-radius: 8px;
             outline: none;
-            transition: border-color .25s, box-shadow .25s;
-            -webkit-appearance: none;
+            transition: border-color .2s, box-shadow .2s;
         }
 
         .form-control:focus {
-            border-color: var(--color-info);
-            box-shadow: 0 0 0 3px rgba(23,193,232,.15);
+            border-color: var(--bark);
+            box-shadow: 0 0 0 3px var(--bark-soft);
         }
 
-        .form-control:focus ~ .input-icon {
-            color: var(--color-info);
-        }
+        .form-control:focus + .input-icon,
+        .input-wrap:focus-within .input-icon { color: var(--bark); }
 
-        .form-control::placeholder {
-            color: #b2bec3;
-        }
+        .form-control::placeholder { color: var(--stone); }
 
-        /* Remember & Forgot */
+        .form-control.has-toggle { padding-right: 36px; }
+
+        /* Extras row */
         .form-extras {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 1.4rem;
+            margin-bottom: 24px;
         }
 
-        .remember-check {
+        .remember-label {
             display: flex;
             align-items: center;
-            gap: .45rem;
+            gap: 7px;
             cursor: pointer;
         }
 
-        .remember-check input[type=checkbox] {
-            width: 16px; height: 16px;
-            accent-color: var(--color-info);
+        .remember-label input[type=checkbox] {
+            width: 15px; height: 15px;
+            accent-color: var(--bark);
             cursor: pointer;
         }
 
-        .remember-check span {
-            font-size: .82rem;
-            color: var(--color-text);
+        .remember-label span {
+            font-size: 12.5px;
+            color: var(--ink3);
         }
 
         .forgot-link {
-            font-size: .82rem;
-            color: var(--color-info-dark);
+            font-size: 12.5px;
+            color: var(--bark);
             font-weight: 500;
             text-decoration: none;
-            transition: opacity .2s;
+            transition: opacity .18s;
         }
 
-        .forgot-link:hover { opacity: .7; }
+        .forgot-link:hover { opacity: 0.7; }
 
-        /* Button */
-        .btn-login {
+        /* Submit button */
+        .btn-submit {
             width: 100%;
-            padding: .8rem 1.5rem;
-            font-family: inherit;
-            font-size: .9rem;
-            font-weight: 600;
+            padding: 11px 16px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
             color: #fff;
-            background: var(--gradient-info);
+            background: var(--bark);
             border: none;
-            border-radius: .75rem;
+            border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 4px 7px -1px rgba(0,0,0,.11), 0 2px 4px -1px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.2);
-            transition: transform .18s, box-shadow .18s, opacity .18s;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: .5rem;
+            gap: 8px;
+            transition: background .18s, transform .14s;
             position: relative;
             overflow: hidden;
         }
 
-        .btn-login::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: rgba(255,255,255,0);
-            transition: background .2s;
-        }
+        .btn-submit:hover  { background: #7a6448; }
+        .btn-submit:active { transform: scale(.98); }
+        .btn-submit:disabled { opacity: .65; cursor: not-allowed; }
 
-        .btn-login:hover::before {
-            background: rgba(255,255,255,.08);
-        }
-
-        .btn-login:active {
-            transform: scale(.98);
-        }
-
-        .btn-login:disabled {
-            opacity: .7;
-            cursor: not-allowed;
-        }
-
-        .btn-login .spinner {
-            width: 16px; height: 16px;
-            border: 2px solid rgba(255,255,255,.4);
+        .btn-spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.35);
             border-top-color: #fff;
             border-radius: 50%;
-            animation: spin .65s linear infinite;
+            animation: spin .6s linear infinite;
             display: none;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .btn-login.loading .spinner { display: block; }
-        .btn-login.loading .btn-text { display: none; }
-
-        /* Alert */
-        .alert {
-            padding: .8rem 1rem;
-            border-radius: .65rem;
-            font-size: .82rem;
-            font-weight: 500;
-            margin-bottom: 1rem;
-            display: none;
-            align-items: center;
-            gap: .5rem;
-        }
-
-        .alert.alert-danger {
-            background: #fff5f5;
-            color: #e74c3c;
-            border: 1px solid #fdd;
-            display: flex;
-        }
-
-        .alert.alert-success {
-            background: #f0fff4;
-            color: #27ae60;
-            border: 1px solid #c3e6cb;
-            display: flex;
-        }
+        .btn-submit.loading .btn-spinner { display: block; }
+        .btn-submit.loading .btn-label  { display: none; }
 
         /* Divider */
         .divider {
             display: flex;
             align-items: center;
-            gap: .85rem;
-            margin: 1.4rem 0;
+            gap: 12px;
+            margin: 22px 0 16px;
         }
 
         .divider::before, .divider::after {
             content: '';
             flex: 1;
             height: 1px;
-            background: #e9ecef;
+            background: var(--sand2);
         }
 
         .divider span {
-            font-size: .78rem;
-            color: #adb5bd;
-            font-weight: 500;
+            font-size: 11px;
+            color: var(--stone);
             white-space: nowrap;
+            letter-spacing: 0.3px;
         }
 
-        /* Footer note */
-        .card-footer-note {
+        .card-footer {
             text-align: center;
-            margin-top: 1.2rem;
-            font-size: .8rem;
-            color: var(--color-text);
+            font-size: 12px;
+            color: var(--ink3);
         }
 
-        .card-footer-note a {
-            color: var(--color-info-dark);
-            font-weight: 600;
+        .card-footer a {
+            color: var(--bark);
+            font-weight: 500;
             text-decoration: none;
         }
 
-        /* Stats row */
-        .stats-row {
-            display: flex;
-            gap: .75rem;
-            margin-top: 2.5rem;
-        }
-
-        .stat-item {
-            background: rgba(255,255,255,.18);
-            backdrop-filter: blur(8px);
-            border-radius: .85rem;
-            padding: .9rem 1.1rem;
-            flex: 1;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,.25);
-        }
-
-        .stat-item .stat-num {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #fff;
-            line-height: 1;
-            margin-bottom: .25rem;
-        }
-
-        .stat-item .stat-label {
-            font-size: .72rem;
-            color: rgba(255,255,255,.75);
-            font-weight: 500;
-            letter-spacing: .3px;
-        }
+        .card-footer a:hover { text-decoration: underline; }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .bg-left { display: none; }
-            .content-right { margin-left: 0; background: var(--gradient-info); }
-            .login-card { box-shadow: 0 25px 50px rgba(0,0,0,.15); }
+            .panel-left { display: none; }
+            .panel-right { padding: 32px 20px; }
         }
     </style>
 </head>
 <body>
 
-<div class="page-wrapper">
-
-    <!-- LEFT PANEL -->
-    <div class="bg-left">
-        <div class="bg-left-inner">
-            <div class="brand-logo">
-                <div class="logo-icon">
-                    <i class="fas fa-hotel"></i>
-                </div>
-                <span>Hotel Neo</span>
+    <!-- Left panel -->
+    <div class="panel-left">
+        <div class="panel-brand">
+            <div class="panel-brand-icon">
+                <i class="fas fa-hotel"></i>
             </div>
+            <div>
+                <div class="panel-brand-name">Hotel Neo</div>
+                <div class="panel-brand-sub">Admin</div>
+            </div>
+        </div>
 
-            <!-- Illustration: hotel/building SVG -->
-            <svg class="bg-illustration" viewBox="0 0 280 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <div class="panel-illustration">
+            <svg class="hotel-svg" viewBox="0 0 200 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Building body -->
-                <rect x="60" y="70" width="160" height="140" rx="8" fill="rgba(255,255,255,0.25)"/>
-                <!-- Roof accent -->
-                <rect x="70" y="55" width="140" height="18" rx="5" fill="rgba(255,255,255,0.35)"/>
+                <rect x="30" y="60" width="140" height="115" rx="6" fill="rgba(200,169,110,0.18)"/>
+                <!-- Roof band -->
+                <rect x="22" y="46" width="156" height="16" rx="5" fill="rgba(200,169,110,0.28)"/>
                 <!-- Flagpole -->
-                <line x1="140" y1="20" x2="140" y2="55" stroke="rgba(255,255,255,0.6)" stroke-width="2.5"/>
-                <polygon points="140,20 162,30 140,38" fill="rgba(255,255,255,0.7)"/>
+                <line x1="100" y1="12" x2="100" y2="46" stroke="rgba(200,169,110,0.5)" stroke-width="2"/>
+                <polygon points="100,12 120,20 100,28" fill="rgba(200,169,110,0.6)"/>
                 <!-- Windows row 1 -->
-                <rect x="80" y="88" width="28" height="22" rx="4" fill="rgba(255,255,255,0.55)"/>
-                <rect x="126" y="88" width="28" height="22" rx="4" fill="rgba(255,255,255,0.55)"/>
-                <rect x="172" y="88" width="28" height="22" rx="4" fill="rgba(255,255,255,0.4)"/>
+                <rect x="44" y="76" width="24" height="18" rx="3" fill="rgba(240,235,227,0.18)"/>
+                <rect x="88" y="76" width="24" height="18" rx="3" fill="rgba(240,235,227,0.26)"/>
+                <rect x="132" y="76" width="24" height="18" rx="3" fill="rgba(240,235,227,0.18)"/>
                 <!-- Windows row 2 -->
-                <rect x="80" y="124" width="28" height="22" rx="4" fill="rgba(255,255,255,0.4)"/>
-                <rect x="126" y="124" width="28" height="22" rx="4" fill="rgba(255,255,255,0.55)"/>
-                <rect x="172" y="124" width="28" height="22" rx="4" fill="rgba(255,255,255,0.55)"/>
+                <rect x="44" y="108" width="24" height="18" rx="3" fill="rgba(240,235,227,0.26)"/>
+                <rect x="88" y="108" width="24" height="18" rx="3" fill="rgba(240,235,227,0.18)"/>
+                <rect x="132" y="108" width="24" height="18" rx="3" fill="rgba(240,235,227,0.26)"/>
                 <!-- Door -->
-                <rect x="119" y="172" width="42" height="38" rx="6" fill="rgba(255,255,255,0.35)"/>
-                <circle cx="154" cy="192" r="3" fill="rgba(255,255,255,0.7)"/>
+                <rect x="84" y="140" width="32" height="35" rx="5" fill="rgba(200,169,110,0.22)"/>
+                <circle cx="110" cy="158" r="2.5" fill="rgba(200,169,110,0.55)"/>
                 <!-- Ground -->
-                <rect x="20" y="210" width="240" height="8" rx="4" fill="rgba(255,255,255,0.18)"/>
-                <!-- Stars / decorative dots -->
-                <circle cx="30" cy="40" r="3" fill="rgba(255,255,255,0.5)"/>
-                <circle cx="250" cy="60" r="4" fill="rgba(255,255,255,0.4)"/>
-                <circle cx="260" cy="30" r="2.5" fill="rgba(255,255,255,0.35)"/>
+                <rect x="10" y="175" width="180" height="5" rx="2.5" fill="rgba(240,235,227,0.1)"/>
+                <!-- Decorative dots -->
+                <circle cx="14" cy="30" r="2.5" fill="rgba(200,169,110,0.35)"/>
+                <circle cx="186" cy="22" r="3" fill="rgba(200,169,110,0.25)"/>
+                <circle cx="190" cy="46" r="2" fill="rgba(240,235,227,0.2)"/>
             </svg>
 
-            <h2>Panel Manajemen<br>Hotel Neo</h2>
-            <p>Kelola semua operasional hotel Anda dengan mudah dan efisien melalui satu platform terpadu.</p>
+            <div class="panel-headline">Panel Manajemen<br>Hotel Neo</div>
+            <div class="panel-desc">Kelola seluruh operasional hotel dengan mudah dan efisien melalui satu platform terpadu.</div>
 
-            <div class="stats-row">
-                <div class="stat-item">
-                    <div class="stat-num">128</div>
-                    <div class="stat-label">Kamar</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num">94%</div>
-                    <div class="stat-label">Hunian</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num">4.8★</div>
-                    <div class="stat-label">Rating</div>
-                </div>
-            </div>
+
         </div>
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div class="content-right">
+    <!-- Right panel -->
+    <div class="panel-right">
         <div class="login-card">
-            <div class="card-header-area">
-                <span class="badge-top">Admin Panel</span>
-                <h3>Selamat Datang</h3>
-                <p>Masukkan email dan password Anda untuk mengakses Neo admin</p>
-            </div>
 
-            <!-- Alert Area -->
-            <div class="alert" id="alertBox" role="alert">
-                <i class="fas fa-exclamation-circle"></i>
-                <span id="alertMsg">Terjadi kesalahan.</span>
-            </div>
+            <span class="card-eyebrow">Admin Panel</span>
+            <h1 class="card-title">Selamat Datang</h1>
+            <p class="card-subtitle">Masukkan email dan password Anda untuk mengakses dashboard Hotel Neo.</p>
+
+            @if(session('status'))
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> {{ session('status') }}
+                </div>
+            @endif
+
+            @error('email')
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-circle"></i> {{ $message }}
+                </div>
+            @enderror
 
             <form id="loginForm" method="POST" action="{{ url('/login') }}">
                 @csrf
 
-                @error('email')
-                    <div style="color: #dc3545; font-size: 0.875rem; margin-bottom: 1rem;">
-                        <i class="fas fa-exclamation-circle"></i> {{ $message }}
-                    </div>
-                @enderror
-
                 <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <div class="input-wrapper">
+                    <label class="form-label" for="email">Alamat Email</label>
+                    <div class="input-wrap">
+                        <input
+                            type="email" name="email" id="email"
+                            class="form-control"
+                            placeholder="admin@hotelneo.com"
+                            value="{{ old('email') }}"
+                            required autocomplete="email"
+                        >
                         <i class="fas fa-envelope input-icon"></i>
-                        <input type="email" name="email" id="email" class="form-control" placeholder="admin@hotelneo.com" value="{{ old('email') }}" required autocomplete="email">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <div class="input-wrapper">
+                    <label class="form-label" for="password">Password</label>
+                    <div class="input-wrap">
+                        <input
+                            type="password" name="password" id="password"
+                            class="form-control has-toggle"
+                            placeholder="••••••••"
+                            required autocomplete="current-password"
+                        >
                         <i class="fas fa-lock input-icon"></i>
-                        <input type="password" name="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password" style="padding-right:2.8rem">
-                        <i class="fas fa-eye toggle-pw" id="togglePw" title="Tampilkan password" style="cursor: pointer;"></i>
+                        <i class="fas fa-eye toggle-pw" id="togglePw"></i>
                     </div>
                 </div>
 
                 <div class="form-extras">
-                    <label class="remember-check">
+                    <label class="remember-label">
                         <input type="checkbox" name="remember" id="rememberMe">
                         <span>Ingat saya</span>
                     </label>
                     <a href="#" class="forgot-link">Lupa password?</a>
                 </div>
 
-                <button type="submit" class="btn-login" id="loginBtn">
-                    <span class="btn-text"><i class="fas fa-arrow-right-to-bracket"></i>&ensp;Masuk ke Dashboard</span>
-                    <div class="spinner" style="display: none;"></div>
+                <button type="submit" class="btn-submit" id="loginBtn">
+                    <span class="btn-label">
+                        <i class="fas fa-arrow-right-to-bracket"></i>&ensp;Masuk ke Dashboard
+                    </span>
+                    <div class="btn-spinner"></div>
                 </button>
             </form>
 
             <div class="divider"><span>Sistem Manajemen Hotel</span></div>
 
-            <div class="card-footer-note">
-                Butuh bantuan? Hubungi &nbsp;<a href="mailto:support@hotelneo.com">support@hotelneo.com</a>
+            <div class="card-footer">
+                Butuh bantuan? Hubungi <a href="mailto:support@hotelneo.com">support@hotelneo.com</a>
             </div>
         </div>
     </div>
-</div>
 
 <script>
-    document.getElementById('togglePw').addEventListener('click', function (e) {
-        const passwordInput = document.getElementById('password');
-        const icon = this;
-        
-        // Toggle tipe input antara password dan text
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash'); // Ganti ikon jadi mata dicoret
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye'); // Ganti kembali ke mata normal
-        }
+    document.getElementById('togglePw').addEventListener('click', function () {
+        const pw = document.getElementById('password');
+        const isHidden = pw.type === 'password';
+        pw.type = isHidden ? 'text' : 'password';
+        this.classList.toggle('fa-eye', !isHidden);
+        this.classList.toggle('fa-eye-slash', isHidden);
     });
 
-    // (Opsional) Tampilkan spinner saat tombol submit diklik
-    document.getElementById('loginForm').addEventListener('submit', function() {
-        const btnText = document.querySelector('.btn-text');
-        const spinner = document.querySelector('.spinner');
-        
-        btnText.style.display = 'none';
-        spinner.style.display = 'inline-block';
+    document.getElementById('loginForm').addEventListener('submit', function () {
+        const btn = document.getElementById('loginBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
     });
 </script>
 </body>

@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('guests', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 50);
-            $table->string('email')->unique();
+            $table->string('name', 50)->nullable();
+            $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password')->nullable(); // Optional jika tamu bisa login
-            $table->string('phone', 15);
-            $table->string('identity_number', 20); // KTP/Passport
+            $table->string('password')->nullable();
+            $table->string('phone', 15)->nullable();
+            $table->string('identity_number', 20)->nullable();
             $table->text('address')->nullable();
             $table->string('photo_url')->nullable();
             $table->timestamps();

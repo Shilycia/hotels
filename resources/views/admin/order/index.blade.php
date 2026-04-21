@@ -56,6 +56,9 @@
         <div class="section-title">Data Order Restoran</div>
         <div class="section-desc">Kelola pesanan makanan dan minuman dari tamu Hotel Neo.</div>
     </div>
+    <button class="btn btn-primary" onclick="openModal('modalAdd')">
+        <i class="fas fa-plus"></i> Tambah Order
+    </button>
 </div>
 
 <div class="table-card">
@@ -72,11 +75,11 @@
         <table>
             <thead>
                 <tr>
-                    <th>#ID</th>
+                    <th>#ID Order</th>
                     <th>Tamu</th>
                     <th>Item Pesanan</th>
                     <th>Total Harga</th>
-                    <th>Status</th>
+                    <th>Status & Tagihan</th>
                     <th>Waktu Order</th>
                     <th style="text-align:center">Aksi</th>
                 </tr>
@@ -98,11 +101,23 @@
                         @endif
                     </td>
                     <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($order->total_price ?? 0, 0, ',', '.') }}</td>
+                    
+                    {{-- 🟢 PERBAIKAN TAMPILAN STATUS: Tambah Indikator Link Payment --}}
                     <td>
-                        <span class="badge {{ $order->status === 'paid' ? 'badge-active' : 'badge-pending' }}">
-                            {{ $order->status === 'paid' ? 'Lunas (Paid)' : 'Dipesan (Ordered)' }}
-                        </span>
+                        @if($order->status === 'paid')
+                            <span class="badge badge-paid" style="background:#c8d8b8; color:#4a7c59; padding:4px 8px; border-radius:4px;">Lunas (Paid)</span>
+                        @else
+                            <span class="badge badge-pending" style="background:#fdebd0; color:#c07850; padding:4px 8px; border-radius:4px;">Dipesan (Ordered)</span>
+                        @endif
+                        
+                        {{-- Memanggil relasi payment secara lazy untuk menampilkan ID Tagihan --}}
+                        @if($order->payment)
+                            <div style="font-size: 10px; margin-top: 6px; color: var(--ink3);">
+                                <i class="fas fa-link" style="color: var(--clay);"></i> Tagihan: #P-{{ str_pad($order->payment->id, 4, '0', STR_PAD_LEFT) }}
+                            </div>
+                        @endif
                     </td>
+                    
                     <td style="font-size:12px;color:var(--ink3)">{{ $order->created_at->format('d M Y, H:i') }}</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
@@ -133,7 +148,6 @@
         </table>
     </div>
 
-    {{-- Render pagination jika menggunakan paginate() --}}
     @if(isset($orders) && method_exists($orders, 'links'))
     <div style="padding:12px 20px;border-top:1px solid var(--sand2)">
         {{ $orders->links() }}
@@ -164,6 +178,56 @@
         </form>
     </div>
 </div>
+
+{{-- Modal Tambah Order --}}
+<div class="modal-overlay" id="modalAdd">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <div class="modal-title">Tambah Order Restoran</div>
+            <button class="btn-close" onclick="closeModal('modalAdd')"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="{{ route('admin.orders.store') }}" method="POST">
+            @csrf
+            <div class="form-group">
+                <label class="form-label">Tamu (Pemesan)</label>
+                <select name="guest_id" class="form-control" required>
+                    <option value="">-- Pilih Tamu --</option>
+                    @foreach($guests as $guest)
+                        <option value="{{ $guest->id }}">{{ $guest->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            
+            <hr style="border-color: var(--sand2); margin: 20px 0;">
+            <div class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Item Pesanan</span>
+                <button type="button" class="btn btn-sm btn-outline" onclick="addMenuRow()" style="padding: 2px 8px; font-size: 11px;">+ Tambah Menu</button>
+            </div>
+
+            <div id="menu-container">
+                <div class="menu-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div style="flex: 3;">
+                        <select name="menu_id[]" class="form-control" required>
+                            <option value="">-- Pilih Menu --</option>
+                            @foreach($menus as $menu)
+                                <option value="{{ $menu->id }}">{{ $menu->name }} (Rp {{ number_format($menu->price, 0, ',', '.') }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <input type="number" name="qty[]" class="form-control" placeholder="Qty" min="1" value="1" required>
+                    </div>
+                    <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()" style="padding: 0 12px;"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('modalAdd')">Batal</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Buat Pesanan</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -181,7 +245,7 @@
     function confirmDelete(id) {
         Swal.fire({
             title: 'Hapus Order?',
-            text: 'Data order ini akan dihapus permanen.',
+            text: 'Data order ini akan dihapus permanen. Tagihan yang terhubung juga akan ikut terhapus.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#c07850',
@@ -190,6 +254,17 @@
             cancelButtonText: 'Batal',
             backdrop: 'rgba(44,36,32,0.5)'
         }).then(r => { if (r.isConfirmed) document.getElementById('delete-form-' + id).submit(); });
+    }
+
+    function addMenuRow() {
+        const container = document.getElementById('menu-container');
+        // Kloning baris menu pertama
+        const firstRow = container.querySelector('.menu-row').cloneNode(true);
+        // Reset nilainya
+        firstRow.querySelector('select').value = '';
+        firstRow.querySelector('input').value = '1';
+        // Tambahkan ke container
+        container.appendChild(firstRow);
     }
 
     document.getElementById('searchInput').addEventListener('input', function () {

@@ -1,10 +1,10 @@
-@extends('layouts.app')
+@extends('users.layouts.app')
 
 @section('title', 'About Us - Hotelier')
 
 @section('content')
 
-@include('components.page-header', ['title' => 'About Us', 'breadcrumb' => 'About'])
+@include('users.components.page-header', ['title' => 'About Us', 'breadcrumb' => 'About'])
 
 {{-- About Section --}}
 <div class="container-fluid py-5">

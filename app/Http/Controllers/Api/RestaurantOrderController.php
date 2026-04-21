@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantOrderDetail;
+use App\Models\Payment; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -42,9 +43,17 @@ class RestaurantOrderController extends Controller
                 $totalPrice += $subtotal;
             }
 
+            // Update total harga orderan
             $order->update(['total_price' => $totalPrice]);
 
-            return response()->json(['message' => 'Pesanan restoran berhasil', 'data' => $order->load('details')], 201);
+            Payment::create([
+                'restaurant_order_id' => $order->id,
+                'amount'              => $totalPrice, 
+                'payment_status'      => 'pending',   
+                'payment_method'      => 'transfer', 
+            ]);
+
+            return response()->json(['message' => 'Pesanan restoran berhasil dibuat beserta tagihannya.', 'data' => $order->load('details')], 201);
         });
     }
 }

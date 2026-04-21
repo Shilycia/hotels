@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Room;
 use App\Models\Guest; 
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -13,12 +14,11 @@ class BookingController extends Controller
 {
     public function index()
     {
-        // Ubah relasi dari 'user' menjadi 'guest'
         $bookings = Booking::with(['guest', 'room.roomType'])
                             ->orderBy('created_at', 'desc')
                             ->paginate(15);
         
-        $guests = Guest::orderBy('name', 'asc')->get(); // Ambil data dari tabel guests
+        $guests = Guest::orderBy('name', 'asc')->get(); 
         $rooms = Room::with('roomType')->orderBy('room_number', 'asc')->get();
 
         return view('admin.booking.index', compact('bookings', 'guests', 'rooms'));
@@ -27,11 +27,11 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'guest_id' => 'required|exists:guests,id', // Ubah validasi ke guest_id
+            'guest_id' => 'required|exists:guests,id', 
             'room_id' => 'required|exists:rooms,id',
             'check_in' => 'required|date|before:check_out',
             'check_out' => 'required|date|after:check_in',
-            'status' => 'required|in:pending,confirmed,checked_in,checked_out,cancelled', // Sesuaikan enum migration
+            'status' => 'required|in:pending,confirmed,checked_in,checked_out,cancelled', 
         ]);
 
         $checkIn = Carbon::parse($request->check_in);
@@ -41,21 +41,30 @@ class BookingController extends Controller
         $room = Room::with('roomType')->findOrFail($request->room_id);
         $totalPrice = ($room->roomType->price ?? 0) * $days;
 
-        Booking::create([
-            'guest_id' => $request->guest_id, // Masukkan guest_id
+        $booking = Booking::create([
+            'guest_id' => $request->guest_id, 
             'room_id' => $request->room_id,
             'check_in' => $request->check_in,
             'check_out' => $request->check_out,
             'status' => $request->status,
             'total_price' => $totalPrice,
-            // payment_status dihapus
         ]);
 
+        if ($request->status !== 'cancelled') {
+            Payment::create([
+                'booking_id'     => $booking->id,
+                'amount'         => $totalPrice, 
+                'payment_status' => in_array($request->status, ['confirmed', 'checked_in']) ? 'paid' : 'pending',
+                'payment_method' => 'transfer', 
+            ]);
+        }
+
+        // 3. Update status kamar jika perlu
         if (in_array($request->status, ['confirmed', 'checked_in'])) {
             $room->update(['status' => 'occupied']);
         }
 
-        return redirect()->route('admin.bookings')->with('success', 'Reservasi baru berhasil ditambahkan!');
+        return redirect()->route('admin.bookings')->with('success', 'Reservasi baru berhasil ditambahkan dan tagihan telah dibuat!');
     }
 
     public function update(Request $request, Booking $booking)
@@ -79,6 +88,7 @@ class BookingController extends Controller
             Room::where('id', $booking->room_id)->update(['status' => 'available']);
         }
 
+        // 1. Update Tabel Bookings
         $booking->update([
             'guest_id' => $request->guest_id,
             'room_id' => $request->room_id,
@@ -88,19 +98,40 @@ class BookingController extends Controller
             'total_price' => $totalPrice,
         ]);
 
+        $payment = \App\Models\Payment::where('booking_id', $booking->id)->first();
+        if ($payment) {
+            // Update nominal tagihan jika ada perubahan harga/tanggal
+            $payment->amount = $totalPrice;
+
+            // Sesuaikan status payment dengan status booking yang baru
+            if (in_array($request->status, ['confirmed', 'checked_in', 'checked_out'])) {
+                $payment->payment_status = 'paid';
+            } elseif ($request->status === 'cancelled') {
+                $payment->payment_status = 'failed';
+            } elseif ($request->status === 'pending') {
+                $payment->payment_status = 'pending';
+            }
+            
+            $payment->save(); // Simpan perubahan payment ke database
+        }
+
+        // 3. Update Status Fisik Kamar
         if (in_array($request->status, ['cancelled', 'checked_out'])) {
             $room->update(['status' => 'available']);
         } elseif (in_array($request->status, ['confirmed', 'checked_in'])) {
             $room->update(['status' => 'occupied']);
         }
 
-        return redirect()->route('admin.bookings')->with('success', 'Data reservasi berhasil diperbarui!');
+        return redirect()->route('admin.bookings')->with('success', 'Data reservasi dan tagihan berhasil diperbarui!');
     }
 
     public function destroy(Booking $booking)
     {
         $booking->room()->update(['status' => 'available']);
+        
+        Payment::where('booking_id', $booking->id)->delete(); 
+        
         $booking->delete();
-        return redirect()->route('admin.bookings')->with('success', 'Data reservasi berhasil dihapus.');
+        return redirect()->route('admin.bookings')->with('success', 'Data reservasi beserta tagihannya berhasil dihapus.');
     }
 }

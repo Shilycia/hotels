@@ -14,15 +14,26 @@ class WebhookController extends Controller
         $hashed = hash("sha512", $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
         
         if ($hashed == $request->signature_key) {
-            if ($request->transaction_status == 'settlement' || $request->transaction_status == 'capture') {
-                $payment = Payment::where('note', 'LIKE', '%' . $request->order_id . '%')->first();
-                
-                if ($payment) {
+            $payment = Payment::where('note', 'LIKE', '%' . $request->order_id . '%')->first();
+            
+            if ($payment) {
+                if ($request->transaction_status == 'settlement' || $request->transaction_status == 'capture') {
                     $payment->update(['payment_status' => 'paid']);
                     
-                    // Jika ini pembayaran booking, otomatis ubah status booking juga
-                    if ($payment->booking_id) {
-                        $payment->booking()->update(['payment_status' => 'paid']);
+                    if ($payment->booking) {
+                        $payment->booking()->update(['status' => 'confirmed']);
+                        if ($payment->booking->room) {
+                            $payment->booking->room()->update(['status' => 'occupied']);
+                        }
+                    }
+                } elseif (in_array($request->transaction_status, ['cancel', 'deny', 'expire'])) {
+                    $payment->update(['payment_status' => 'failed']);
+                    
+                    if ($payment->booking) {
+                        $payment->booking()->update(['status' => 'cancelled']);
+                        if ($payment->booking->room) {
+                            $payment->booking->room()->update(['status' => 'available']);
+                        }
                     }
                 }
             }

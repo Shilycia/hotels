@@ -1,12 +1,12 @@
 {{-- TEAM PAGE: resources/views/pages/team.blade.php --}}
 
-@extends('layouts.app')
+@extends('users.layouts.app')
 
 @section('title', 'Our Team - Hotelier')
 
 @section('content')
 
-@include('components.page-header', ['title' => 'Our Team', 'breadcrumb' => 'Team'])
+@include('users.components.page-header', ['title' => 'Our Team', 'breadcrumb' => 'Team'])
 
 <div class="container-fluid py-5">
     <div class="container">
