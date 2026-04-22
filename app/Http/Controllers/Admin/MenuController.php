@@ -19,7 +19,9 @@ class MenuController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'category' => 'required|string', 
             'price' => 'required|numeric|min:0',
+            'is_available' => 'required|boolean', 
             'description' => 'nullable|string',
             'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
         ]);
@@ -41,12 +43,15 @@ class MenuController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'category' => 'required|string',
             'price' => 'required|numeric|min:0',
+            'is_available' => 'required|boolean',
             'description' => 'nullable|string',
-            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
         if ($request->hasFile('foto_url')) {
+            // Hapus file lama jika ada
             if ($menu->foto_url && File::exists(public_path($menu->foto_url))) {
                 File::delete(public_path($menu->foto_url));
             }
