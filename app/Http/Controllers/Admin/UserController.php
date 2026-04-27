@@ -12,83 +12,87 @@ use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
-    public function index() {
-        $users = User::with('role')->orderBy('id', 'desc')->paginate(10);
-        $roles = Role::all(); 
+    public function index()
+    {
+        $users = User::with('role')->latest()->paginate(10);
+        
+        $roles = Role::all();
+        
         return view('admin.users.index', compact('users', 'roles'));
     }
 
-    public function store(Request $request) {
-        $validated = $request->validate([
-            'role_id'  => 'required|exists:roles,id',
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users',
-            'password' => 'required|min:8|confirmed',
-            'foto'     => 'nullable|image|max:2048',
+    public function create()
+    {
+        $roles = Role::all();
+        return view('admin.users.create', compact('roles'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:6',
+            'role_id' => 'nullable|exists:roles,id',
+            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
         ]);
 
+        $data = $request->except(['password', 'foto']);
+        $data['password'] = Hash::make($request->password);
+
         if ($request->hasFile('foto')) {
-            $validated['foto'] = 'storage/' . $request->file('foto')->store('user_fotos', 'public');
+            $data['foto'] = $request->file('foto')->store('users', 'public');
         }
 
-        $validated['password'] = Hash::make($request->password);
-        User::create($validated);
+        User::create($data);
+        return redirect()->route('admin.users.index')->with('success', 'Staf berhasil ditambahkan!');
+    }
 
-        return redirect()->back()->with('success', 'User berhasil ditambah.');
+    public function edit(User $user)
+    {
+        $roles = Role::all();
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     public function update(Request $request, User $user)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|min:8|confirmed',
-            'role_id' => 'required|exists:roles,id', 
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'password' => 'nullable|min:6',
+            'role_id' => 'nullable|exists:roles,id',
+            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
         ]);
 
-        $fotoPath = $user->foto;
+        $data = $request->except(['password', 'foto']);
+        
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
 
         if ($request->hasFile('foto')) {
-            if ($user->foto) {
-                $oldPath = str_replace('storage/', '', $user->foto);
-                Storage::disk('public')->delete($oldPath);
-            }
-
-            $newPath = $request->file('foto')->store('user_fotos', 'public');
-            $fotoPath = 'storage/' . $newPath;
+            if ($user->foto) Storage::disk('public')->delete($user->foto);
+            $data['foto'] = $request->file('foto')->store('users', 'public');
         }
 
-        // 3. Update Data Dasar
-        $user->update([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'role_id' => $validated['role_id'], 
-            'foto' => $fotoPath,
-        ]);
-
-        if ($request->filled('password')) {
-            $user->update([
-                'password' => Hash::make($validated['password'])
-            ]);
-        }
-
-        return redirect()->route('admin.users')->with('success', 'Data user berhasil diperbarui.');
+        $user->update($data);
+        return redirect()->route('admin.users.index')->with('success', 'Data staf diperbarui!');
     }
 
     public function destroy(User $user)
     {
+        // Menggunakan Facade Auth yang sudah di-import
         if (Auth::id() === $user->id) {
-            return redirect()->back()->with('error', 'Anda tidak bisa menghapus akun sendiri.');
+            return redirect()->route('admin.users.index')->with('error', 'Anda tidak dapat menghapus akun Anda sendiri saat sedang login!');
         }
 
+        // Menggunakan Facade Storage agar lebih rapi
         if ($user->foto) {
-            $path = str_replace('storage/', '', $user->foto);
-            Storage::disk('public')->delete($path);
+            Storage::disk('public')->delete($user->foto);
         }
-
+        
         $user->delete();
         
-        return redirect()->back()->with('success', 'User berhasil dihapus.');
+        return redirect()->route('admin.users.index')->with('success', 'Akses staf berhasil dihapus!');
     }
 }

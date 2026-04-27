@@ -4,23 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantOrder;
-use App\Models\RestaurantOrderDetail;
 use App\Models\RestaurantMenu;
 use App\Models\Guest;
 use App\Models\Payment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
     public function index()
     {
-        $orders = RestaurantOrder::with(['guest', 'details.menu'])
-                                 ->orderBy('created_at', 'desc')
-                                 ->get(); 
-        
-        $guests = Guest::orderBy('name', 'asc')->get();
-        $menus = RestaurantMenu::orderBy('name', 'asc')->get();
+        $orders = RestaurantOrder::with(['guest', 'details.menu', 'payment'])->latest()->get();
+        $guests = Guest::all();
+        $menus = RestaurantMenu::where('is_available', true)->get();
 
         return view('admin.order.index', compact('orders', 'guests', 'menus'));
     }
@@ -29,69 +24,69 @@ class OrderController extends Controller
     {
         $request->validate([
             'guest_id' => 'required|exists:guests,id',
-            'menu_id' => 'required|array',
-            'menu_id.*' => 'required|exists:restaurant_menus,id',
-            'qty' => 'required|array',
-            'qty.*' => 'required|integer|min:1',
+            'order_type' => 'required|in:dine_in,takeaway,in_room',
+            'table_or_room' => 'nullable|string|max:20',
+            'notes' => 'nullable|string',
+            'menu_id' => 'required|array|min:1',
+            'qty' => 'required|array|min:1',
         ]);
 
-        DB::transaction(function () use ($request) {
-            $order = RestaurantOrder::create([
-                'guest_id'    => $request->guest_id,
-                'total_price' => 0, 
-                'status'      => 'ordered',
-            ]);
+        $totalAmount = 0;
+        $orderItems = [];
 
-            $totalPrice = 0;
+        foreach ($request->menu_id as $index => $menuId) {
+            $menu = RestaurantMenu::findOrFail($menuId);
+            $quantity = $request->qty[$index];
+            $subtotal = $menu->price * $quantity;
+            
+            $totalAmount += $subtotal;
 
-            foreach ($request->menu_id as $index => $menuId) {
-                $qty = $request->qty[$index];
-                $menu = RestaurantMenu::find($menuId);
-                $subtotal = $menu->price * $qty;
-                
-                RestaurantOrderDetail::create([
-                    'restaurant_order_id' => $order->id,
-                    'restaurant_menu_id'  => $menu->id,
-                    'quantity'            => $qty,
-                    'price'               => $menu->price,
-                ]);
+            $orderItems[] = [
+                'restaurant_menu_id' => $menu->id,
+                'quantity' => $quantity,
+                'unit_price' => $menu->price,
+                'subtotal' => $subtotal,
+            ];
+        }
 
-                $totalPrice += $subtotal;
-            }
+        $order = RestaurantOrder::create([
+            'guest_id' => $request->guest_id,
+            'order_type' => $request->order_type,
+            'table_or_room' => $request->table_or_room,
+            'notes' => $request->notes,
+            'total_amount' => $totalAmount,
+            'status' => 'pending', 
+        ]);
 
-            $order->update(['total_price' => $totalPrice]);
+        foreach ($orderItems as $item) {
+            $order->details()->create($item);
+        }
 
-            Payment::create([
-                'restaurant_order_id' => $order->id,
-                'amount'              => $totalPrice,
-                'payment_status'      => 'pending',
-                'payment_method'      => 'transfer', 
-            ]);
-        });
+        Payment::create([
+            'restaurant_order_id' => $order->id,
+            'amount' => $totalAmount,
+            'payment_status' => 'pending',
+            'payment_method' => 'cash', 
+        ]);
 
-        return redirect()->route('admin.orders')->with('success', 'Orderan restoran baru berhasil ditambahkan dan tagihan telah dibuat!');
+        return redirect()->route('admin.orders.index')->with('success', 'Pesanan restoran berhasil dibuat dan diteruskan ke dapur!');
     }
 
     public function update(Request $request, RestaurantOrder $order)
     {
-        $request->validate(['status' => 'required|in:ordered,paid']);
+        $request->validate([
+            'status' => 'required|in:pending,preparing,served,completed'
+        ]);
+
         $order->update(['status' => $request->status]);
 
-        $payment = Payment::where('restaurant_order_id', $order->id)->first();
-        if ($payment) {
-            if ($request->status === 'paid') {
-                $payment->update(['payment_status' => 'paid']);
-            } elseif ($request->status === 'ordered') {
-                $payment->update(['payment_status' => 'pending']);
-            }
-        }
-        return redirect()->route('admin.orders')->with('success', 'Status pesanan restoran dan tagihannya berhasil diperbarui!');
+        return redirect()->route('admin.orders.index')->with('success', 'Status pesanan dapur diperbarui!');
     }
 
+    // Menghapus pesanan dan seluruh detailnya
     public function destroy(RestaurantOrder $order)
     {
-        Payment::where('restaurant_order_id', $order->id)->delete();
         $order->delete();
-        return redirect()->route('admin.orders')->with('success', 'Data pesanan dan riwayat tagihannya berhasil dihapus permanen.');
+        return redirect()->route('admin.orders.index')->with('success', 'Pesanan restoran dihapus!');
     }
 }

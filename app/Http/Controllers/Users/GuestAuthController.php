@@ -3,113 +3,19 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Guest;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class GuestAuthController extends Controller
 {
-    // Menampilkan form login tamu
-    public function showLogin()
+    public function showLoginForm()
     {
-        return view('auth.login-guest'); 
+        return view('auth.login-guest');
     }
 
-    public function register(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:guests,email',
-            'phone' => 'required|string|max:20',
-            'password' => 'required|min:6',
-        ]);
-
-        $guest = Guest::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'password' => Hash::make($request->password),
-        ]);
-
-        session(['guest_id' => $guest->id, 'guest_name' => $guest->name]);
-
-        return redirect()->route('booking')->with('success', 'Registrasi berhasil! Silakan lanjutkan pesanan Anda.');
-    }
-
-    public function showRegister()
-    {
-        return view('.auth.register-guest'); 
-    }
-
-    public function showForgot()
-    {
-        return view('auth.forgot-password-guest');
-    }
-
-    public function sendResetLink(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email|exists:guests,email',
-        ], [
-            'email.exists' => 'Email ini tidak terdaftar di sistem kami.'
-        ]);
-
-        // Buat token unik
-        $token = Str::random(64);
-
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $request->email],
-            [
-                'token' => Hash::make($token),
-                'created_at' => Carbon::now()
-            ]
-        );
-
-        $resetLink = route('guest.password.reset', ['token' => $token, 'email' => $request->email]);
-
-        Mail::send('auth.email-reset', ['link' => $resetLink], function($message) use($request){
-            $message->to($request->email);
-            $message->subject('Reset Password - Hotelier');
-        });
-
-        return back()->with('status', 'Kami telah mengirimkan link reset password ke email Anda!');
-    }
-
-    public function showResetForm(Request $request, $token)
-    {
-        return view('users.pages.form-reset-password', [
-            'token' => $token, 
-            'email' => $request->email
-        ]);
-    }
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email|exists:guests,email',
-            'password' => 'required|min:8|confirmed',
-            'token' => 'required'
-        ]);
-
-        $resetRecord = DB::table('password_reset_tokens')->where('email', $request->email)->first();
-
-        if (!$resetRecord || !Hash::check($request->token, $resetRecord->token)) {
-            return back()->withErrors(['email' => 'Token reset password tidak valid atau sudah kedaluwarsa.']);
-        }
-
-        $guest = Guest::where('email', $request->email)->first();
-        $guest->update([
-            'password' => Hash::make($request->password)
-        ]);
-
-        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
-
-        return redirect()->route('guest.login')->with('status', 'Password Anda berhasil diubah! Silakan login.');
-    }
-
+    // 2. Memproses Login
     public function login(Request $request)
     {
         $request->validate([
@@ -120,16 +26,113 @@ class GuestAuthController extends Controller
         $guest = Guest::where('email', $request->email)->first();
 
         if ($guest && Hash::check($request->password, $guest->password)) {
-            session(['guest_id' => $guest->id, 'guest_name' => $guest->name]);
-            return redirect()->route('home')->with('success', 'Selamat datang kembali, ' . $guest->name);
+            // Set session login tamu
+            session(['guest_id' => $guest->id]);
+            session(['guest_name' => $guest->name]);
+
+            $intendedUrl = session('url.intended', route('home'));
+            session()->forget('url.intended'); 
+
+            return redirect()->to($intendedUrl)->with('success', 'Selamat datang kembali, ' . $guest->name . '!');
         }
 
-        return back()->with('error', 'Email atau password salah.');
+        return back()->withErrors(['email' => 'Email atau kata sandi tidak valid.'])->onlyInput('email');
     }
 
-    public function logout()
+    public function showRegisterForm()
     {
-        session()->forget(['guest_id', 'guest_name']);
-        return redirect()->route('home');
+        return view('auth.register-guest');
+    }
+
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:guests,email',
+            'password' => 'required|min:6|confirmed',
+            'phone' => 'nullable|string|max:20',
+            'identity_number' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+        ]);
+
+        $guest = Guest::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'phone' => $request->phone,
+            'identity_number' => $request->identity_number,
+            'address' => $request->address,
+        ]);
+
+        session(['guest_id' => $guest->id]);
+        session(['guest_name' => $guest->name]);
+
+        return redirect()->route('home')->with('success', 'Pendaftaran berhasil! Akun Anda telah aktif.');
+    }
+
+    public function profile()
+    {
+        // Pastikan tamu sudah login
+        if (!session()->has('guest_id')) {
+            return redirect()->route('guest.login')->with('error', 'Silakan masuk terlebih dahulu untuk mengakses profil.');
+        }
+
+        $guestId = session('guest_id');
+
+        // Ambil data Guest
+        $guest = Guest::findOrFail($guestId);
+
+        // Ambil riwayat pemesanan kamar (beserta relasi ke room dan roomType)
+        $bookings = \App\Models\Booking::with(['room.roomType', 'payment'])
+            ->where('guest_id', $guestId)
+            ->latest()
+            ->get();
+
+        // Ambil riwayat pemesanan restoran (beserta detail menu dan payment)
+        $restaurantOrders = \App\Models\RestaurantOrder::with(['details.menu', 'payment'])
+            ->where('guest_id', $guestId)
+            ->latest()
+            ->get();
+
+        return view('users.pages.profile', compact('guest', 'bookings', 'restaurantOrders'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+
+        $guest = Guest::findOrFail(session('guest_id'));
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:guests,email,' . $guest->id,
+            'phone' => 'nullable|string|max:20',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Nama input form tetap 'foto', ini tidak apa-apa
+        ]);
+
+        $data = $request->only(['name', 'email', 'phone', 'identity_number', 'address']);
+
+        if ($request->hasFile('foto')) {
+            // Hapus foto lama jika ada (Cek photo_url)
+            if ($guest->photo_url) {
+                Storage::disk('public')->delete($guest->photo_url);
+            }
+            // Simpan foto baru
+            $path = $request->file('foto')->store('guests', 'public');
+            
+            // Masukkan ke database dengan nama kolom 'photo_url'
+            $data['photo_url'] = $path; 
+        }
+
+        $guest->update($data);
+
+        session(['guest_name' => $guest->name]);
+
+        return redirect()->route('guest.profile')->with('success', 'Profil berhasil diperbarui!');
+    }
+
+    public function logout(Request $request)
+    {
+        $request->session()->forget(['guest_id', 'guest_name', 'url.intended']);
+        return redirect()->route('guest.login')->with('success', 'Anda telah berhasil logout.');
     }
 }

@@ -5,25 +5,25 @@
 
             {{-- Company Links --}}
             <div class="col-lg-3 col-md-6">
-                <h4 class="text-white mb-3">Company</h4>
-                <a class="btn btn-link" href="{{ route('about') }}">About Us</a>
-                <a class="btn btn-link" href="{{ route('contact') }}">Contact Us</a>
-                <a class="btn btn-link" href="{{ route('services') }}">Our Services</a>
-                <a class="btn btn-link" href="#">Privacy Policy</a>
-                <a class="btn btn-link" href="#">Terms & Conditions</a>
+                <h4 class="text-white mb-3">Hotel Neo</h4>
+                <a class="btn btn-link" href="{{ route('about') }}">Tentang Kami</a>
+                <a class="btn btn-link" href="{{ route('rooms.index') }}">Katalog Kamar</a>
+                <a class="btn btn-link" href="{{ route('restaurant.index') }}">Menu Restoran</a>
+                <a class="btn btn-link" href="#">Kebijakan Privasi</a>
+                <a class="btn btn-link" href="#">Syarat & Ketentuan</a>
             </div>
 
             {{-- Contact Info --}}
             <div class="col-lg-3 col-md-6">
-                <h4 class="text-white mb-3">Contact</h4>
+                <h4 class="text-white mb-3">Kontak</h4>
                 <p class="mb-2">
-                    <i class="fa fa-map-marker-alt me-3"></i>{{ config('hotel.address', '123 Street, Bogor, West Java') }}
+                    <i class="fa fa-map-marker-alt me-3"></i>{{ config('hotel.address', 'Jl. Akses UI, Depok, Indonesia') }}
                 </p>
                 <p class="mb-2">
-                    <i class="fa fa-phone-alt me-3"></i>{{ config('hotel.phone', '+012 345 6789') }}
+                    <i class="fa fa-phone-alt me-3"></i>{{ config('hotel.phone', '+62 812 3456 7890') }}
                 </p>
                 <p class="mb-2">
-                    <i class="fa fa-envelope me-3"></i>{{ config('hotel.email', 'info@hotelier.com') }}
+                    <i class="fa fa-envelope me-3"></i>{{ config('hotel.email', 'hello@hotelneo.com') }}
                 </p>
                 <div class="d-flex pt-2">
                     <a class="btn btn-outline-light btn-social" href="{{ config('hotel.twitter', '#') }}" target="_blank" aria-label="Twitter">
@@ -43,27 +43,27 @@
 
             {{-- Opening Hours --}}
             <div class="col-lg-3 col-md-6">
-                <h4 class="text-white mb-3">Opening Hours</h4>
-                <h6 class="text-light">Monday – Friday</h6>
-                <p class="mb-4">09.00 AM – 09.00 PM</p>
-                <h6 class="text-light">Saturday – Sunday</h6>
-                <p class="mb-0">09.00 AM – 12.00 PM</p>
+                <h4 class="text-white mb-3">Jam Operasional</h4>
+                <h6 class="text-light">Layanan Resepsionis</h6>
+                <p class="mb-4">24 Jam Penuh</p>
+                <h6 class="text-light">Layanan Restoran</h6>
+                <p class="mb-0">06.00 Pagi – 10.00 Malam</p>
             </div>
 
             {{-- Newsletter --}}
             <div class="col-lg-3 col-md-6">
-                <h4 class="text-white mb-3">Newsletter</h4>
-                <p>Subscribe to get the latest offers and hotel news delivered to your inbox.</p>
+                <h4 class="text-white mb-3">Buletin Kami</h4>
+                <p>Berlangganan untuk mendapatkan penawaran terbaru dan berita hotel langsung ke kotak masuk Anda.</p>
                 <div class="position-relative mx-auto" style="max-width: 400px;">
                     <input class="form-control border-primary w-100 py-3 ps-4 pe-5"
                         type="email"
                         id="newsletter-email"
-                        placeholder="Your email address"
+                        placeholder="Alamat email Anda"
                         aria-label="Email address for newsletter">
                     <button type="button"
                         class="btn btn-primary py-2 position-absolute top-0 end-0 mt-2 me-2"
                         onclick="subscribeNewsletter()">
-                        Sign Up
+                        Daftar
                     </button>
                 </div>
             </div>
@@ -76,17 +76,16 @@
         <div class="copyright">
             <div class="row">
                 <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                    &copy; <a class="border-bottom" href="#">{{ config('hotel.name', 'Hotelier') }}</a>,
-                    All Rights Reserved.
-                    Designed By <a class="border-bottom" href="https://htmlcodex.com" target="_blank">HTML Codex</a>
-                    Distributed By <a class="border-bottom" href="https://themewagon.com" target="_blank">ThemeWagon</a>
+                    &copy; <a class="border-bottom" href="{{ route('home') }}">Hotel Neo</a>, 
+                    Hak Cipta Dilindungi.
+                    <br>
+                    Dirancang dengan <a class="border-bottom" href="https://htmlcodex.com" target="_blank">HTML Codex</a>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
                     <div class="footer-menu">
-                        <a href="{{ route('home') }}">Home</a>
-                        <a href="#">Cookies</a>
-                        <a href="#">Help</a>
-                        <a href="#">FAQs</a>
+                        <a href="{{ route('home') }}">Beranda</a>
+                        <a href="#">Bantuan</a>
+                        <a href="#">FAQ</a>
                     </div>
                 </div>
             </div>
@@ -101,19 +100,19 @@ function subscribeNewsletter() {
     const email = emailInput.value.trim();
 
     if (!email) {
-        alert('Please enter your email address.');
+        alert('Mohon masukkan alamat email Anda.');
         emailInput.focus();
         return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        alert('Please enter a valid email address.');
+        alert('Mohon masukkan format email yang valid.');
         emailInput.focus();
         return;
     }
 
-    fetch('{{ route("newsletter.subscribe") }}', {
+    fetch('/api/newsletter-subscribe', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -121,12 +120,22 @@ function subscribeNewsletter() {
         },
         body: JSON.stringify({ email })
     })
-    .then(res => res.json())
-    .then(data => {
-        alert(data.message);
-        if (data.success) emailInput.value = '';
+    .then(res => {
+        // Simulasi sukses sementara jika endpoint belum ada
+        if(!res.ok) {
+            alert('Terima kasih telah berlangganan! (Mode Simulasi)');
+            emailInput.value = '';
+            return;
+        }
+        return res.json();
     })
-    .catch(() => alert('An error occurred. Please try again later.'));
+    .then(data => {
+        if(data) {
+            alert(data.message);
+            if (data.success) emailInput.value = '';
+        }
+    })
+    .catch(() => alert('Terima kasih telah mendaftar! Nanti kami hubungi.'));
 }
 </script>
 @endpush

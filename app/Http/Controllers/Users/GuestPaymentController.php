@@ -4,79 +4,71 @@ namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Discount;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Midtrans\Config;
-use Midtrans\Snap;
+use Illuminate\Support\Str;
 
 class GuestPaymentController extends Controller
 {
-    public function show(Payment $payment)
+    public function __construct()
     {
-        Config::$serverKey = config('midtrans.server_key');
-        Config::$isProduction = config('midtrans.is_production');
-        Config::$isSanitized = config('midtrans.is_sanitized');
-        Config::$is3ds = config('midtrans.is_3ds');
-
-        $guestName = 'Tamu Hotel Neo';
-        if ($payment->booking && $payment->booking->guest) {
-            $guestName = $payment->booking->guest->name;
-        } elseif ($payment->restaurantOrder && $payment->restaurantOrder->guest) {
-            $guestName = $payment->restaurantOrder->guest->name;
-        }
-
-        $params = [
-            'transaction_details' => [
-                'order_id' => 'PAY-' . $payment->id . '-' . time(), 
-                'gross_amount' => (int) round($payment->amount),
-            ],
-            'customer_details' => [
-                'first_name' => $guestName, 
-            ],
-        ];
-
-        $snapToken = Snap::getSnapToken($params);
-
-        return view('users.payment.index', compact('payment', 'snapToken'));
+        \Midtrans\Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+        \Midtrans\Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+        \Midtrans\Config::$isSanitized = true;
+        \Midtrans\Config::$is3ds = true;
     }
 
-    public function updateFrontendStatus(Request $request, Payment $payment)
+    public function processPayment(Request $request)
     {
-        $status = $request->status;
+        $totalAmount = $request->total_amount;
+        $transactionType = $request->transaction_type;
+        $discountApplied = 0;
+        $activeDiscount = Discount::where('is_active', true)
+            ->whereDate('valid_from', '<=', now())
+            ->whereDate('valid_until', '>=', now())
+            ->where(function($query) use ($transactionType) {
+                $query->where('applicable_to', 'all')
+                      ->orWhere('applicable_to', $transactionType);
+            })
+            ->where('min_transaction_amount', '<=', $totalAmount)
+            ->first();
 
-        if ($status === 'paid' || $status === 'settlement' || $status === 'capture') {
-            
-            $payment->update(['payment_status' => 'paid']);
-
-            if ($payment->booking) {
-                $payment->booking()->update(['status' => 'confirmed']);
-                if ($payment->booking->room) {
-                    $payment->booking->room()->update(['status' => 'occupied']);
-                }
+        if ($activeDiscount) {
+            if ($activeDiscount->discount_type == 'percentage') {
+                $discountApplied = $totalAmount * ($activeDiscount->discount_value / 100);
+            } else {
+                $discountApplied = $activeDiscount->discount_value;
             }
-            
-            if ($payment->restaurant_order_id) {
-                $payment->restaurantOrder()->update(['status' => 'paid']);
-            }
-
-        } elseif (in_array($status, ['failed', 'cancel', 'deny', 'expire'])) {
-            
-            $payment->update(['payment_status' => 'failed']);
-
-            if ($payment->booking) {
-                $payment->booking()->update(['status' => 'cancelled']);
-                if ($payment->booking->room) {
-                    $payment->booking->room()->update(['status' => 'available']);
-                }
-            }
-            
-        } else {
-            $payment->update(['payment_status' => 'pending']);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Status pembayaran dan ketersediaan kamar berhasil disinkronkan!'
+        $finalAmount = $totalAmount - $discountApplied;
+        $orderId = 'NEO-' . time() . '-' . Str::random(5);
+        $payment = Payment::create([
+            'booking_id' => $request->booking_id,
+            'restaurant_order_id' => $request->restaurant_order_id,
+            'package_order_id' => $request->package_order_id,
+            'amount' => $finalAmount,
+            'discount_applied' => $discountApplied,
+            'payment_status' => 'pending',
+            'midtrans_order_id' => $orderId,
         ]);
+        $params = [
+            'transaction_details' => [
+                'order_id' => $orderId,
+                'gross_amount' => (int) $finalAmount,
+            ],
+            'customer_details' => [
+                'first_name' => auth('guest')->user()->name ?? 'Tamu',
+                'email' => auth('guest')->user()->email ?? 'tamu@hotelneo.com',
+            ]
+        ];
+
+        try {
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
+            return view('users.pages.invoice', compact('payment', 'snapToken'));
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat pembayaran: ' . $e->getMessage());
+        }
     }
 }

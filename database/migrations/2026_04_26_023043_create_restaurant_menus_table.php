@@ -11,18 +11,17 @@ return new class extends Migration
         Schema::create('restaurant_menus', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('category'); 
+            $table->enum('category', ['food', 'drink', 'dessert', 'snack', 'paket']);
             $table->text('description')->nullable();
             $table->decimal('price', 12, 2);
             $table->string('foto_url')->nullable();
             $table->boolean('is_available')->default(true);
-            
-            $table->integer('prep_time')->default(15);
+            $table->integer('prep_time')->nullable(); 
             $table->integer('calories')->nullable();
-            $table->string('allergens')->nullable();
+            $table->string('allergens')->nullable(); 
             $table->string('serving')->nullable();
-            $table->float('rating')->default(5.0);
-
+            $table->decimal('rating', 3, 1)->default(0.0); 
+            
             $table->timestamps();
         });
     }

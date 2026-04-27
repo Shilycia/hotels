@@ -3,342 +3,127 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Room;
-use App\Models\RestaurantMenu;        
-use App\Models\RestaurantOrder;        
-use App\Models\RestaurantOrderDetail;
-use App\Models\User;
-use App\Models\Booking;
-use App\Models\Payment;
+use App\Models\Discount;
 use App\Models\Guest;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use App\Models\Package;
+use App\Models\Payment;
+use App\Models\RestaurantMenu;
+use App\Models\RoomType;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class PageController extends Controller
 {
-    public function home()
+    public function index()
     {
-        $rooms = Room::with('roomType')->get();
-        $staffs = User::with('role')->get();
-        return view('users.pages.home', compact('rooms', 'staffs'));
-    }
+        $activeDiscounts = Discount::where('is_active', true)
+            ->whereDate('valid_until', '>=', now())
+            ->get();
 
-    public function about() { return view('users.pages.about'); }
-    public function services() { return view('users.pages.services'); }
-    public function team() { return view('users.pages.team'); }
-    public function testimonial() { return view('users.pages.testimonial'); }
-    public function contact() { return view('users.pages.contact'); }
+        $featuredRooms = RoomType::limit(3)->get();
 
-    public function rooms(Request $request)
-    {
-        $query = Room::with('roomType')->where('status', 'available');
+        $featuredMenus = RestaurantMenu::where('is_available', true)->limit(4)->get();
 
-        if ($request->filled('adult')) {
-            $query->whereHas('roomType', function($q) use ($request) {
-                $q->where('adult_capacity', '>=', $request->adult);
-            });
-        }
-        if ($request->filled('child')) {
-            $query->whereHas('roomType', function($q) use ($request) {
-                $q->where('child_capacity', '>=', $request->child);
-            });
-        }
+        $packages = Package::with('roomType')->where('is_active', true)->limit(3)->get();
 
-        if ($request->filled('check_in') && $request->filled('check_out')) {
-            $checkIn = Carbon::parse($request->check_in)->format('Y-m-d H:i:s');
-            $checkOut = Carbon::parse($request->check_out)->format('Y-m-d H:i:s');
-
-            $query->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut) {
-                $q->whereIn('status', ['pending', 'confirmed', 'checked_in'])
-                ->where('check_in', '<', $checkOut)
-                ->where('check_out', '>', $checkIn);
-            });
-        }
-
-        if ($request->filled('sort')) {
-            switch ($request->sort) {
-                case 'price_low':
-                    $query->join('room_types', 'rooms.room_type_id', '=', 'room_types.id')
-                        ->orderBy('room_types.price', 'asc')
-                        ->select('rooms.*');
-                    break;
-                case 'price_high':
-                    $query->join('room_types', 'rooms.room_type_id', '=', 'room_types.id')
-                        ->orderBy('room_types.price', 'desc')
-                        ->select('rooms.*');
-                    break;
-                case 'rating':
-                    $query->join('room_types', 'rooms.room_type_id', '=', 'room_types.id')
-                        ->orderBy('room_types.rating', 'desc')
-                        ->select('rooms.*');
-                    break;
-                default:
-                    $query->orderBy('created_at', 'desc');
-                    break;
-            }
-        } else {
-            $query->orderBy('created_at', 'desc');
-        }
-
-        $rooms = $query->paginate(6)->withQueryString();
-
-        return view('users.pages.rooms', compact('rooms'));
-    }
-
-    public function roomDetail($id)
-    {
-        $room = Room::with('roomType')->findOrFail($id);
-        $room->name = $room->roomType->name ?? 'Tipe Kamar Dihapus';
-        $room->price = $room->roomType->price ?? 0;
-        $room->bed_type = $room->roomType->bed_type ?? '-';
-        $room->bath_count = $room->roomType->bath_count ?? 0;
-        $room->rating = $room->roomType->rating ?? 5;
-        $room->description = $room->roomType->description ?? 'Deskripsi belum tersedia.';
-        $room->image = $room->roomType->foto ? $room->roomType->foto : 'img/room-1.jpg';
-
-        return view('users.pages.room-detail', compact('room'));
-    }
-
-    public function booking(Request $request)
-    {
-        $roomsRaw = Room::with('roomType')->where('status', 'available')->get();
+        $staffs = User::with('role')->limit(4)->get();
         
-        $rooms = $roomsRaw->map(function($room) {
-            $room->name = $room->roomType->name ?? 'Kamar Standard';
-            $room->price = $room->roomType->price ?? 0;
-            return $room;
-        });
-
-        return view('users.pages.booking', compact('rooms'));
+        return view('users.pages.home', compact(
+            'activeDiscounts', 'featuredRooms', 'featuredMenus', 'packages', 'staffs'
+        ));
     }
 
-    public function storeBooking(Request $request)
+    public function about()
     {
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email',
-            'check_in' => 'required|date',
-            'check_out' => 'required|date|after:check_in',
-            'room_id' => 'required|exists:rooms,id',
-            'adult' => 'required|integer|min:1',
-            'child' => 'required|integer|min:0',
-        ]);
+        return view('users.pages.about');
+    }
 
-        $checkIn = Carbon::parse($request->check_in);
-        $checkOut = Carbon::parse($request->check_out);
-
-        $isBooked = Booking::where('room_id', $request->room_id)
-            ->whereIn('status', ['pending', 'confirmed', 'checked_in']) 
-            ->where('check_in', '<', $checkOut->format('Y-m-d H:i:s'))
-            ->where('check_out', '>', $checkIn->format('Y-m-d H:i:s'))
-            ->exists();
-
-        if ($isBooked) {
-            return back()->withInput()->withErrors([
-                'room_id' => 'Maaf, kamar ini sudah dipesan pada tanggal tersebut. Silakan pilih tanggal atau kamar lain.'
-            ]);
-        }
-
-        $guestId = session('guest_id');
-        if (!$guestId) {
-            $guest = Guest::firstOrCreate(
-                ['email' => $request->email],
-                [
-                    'name' => $request->name, 
-                    'phone' => '-', 
-                    'password' => bcrypt('password123') 
-                ]
-            );
-            $guestId = $guest->id;
-            session(['guest_id' => $guest->id, 'guest_name' => $guest->name]);
-        }
-
-        $room = Room::with('roomType')->findOrFail($request->room_id);
-
-        $adultCapacity = $room->roomType->adult_capacity ?? 2;
-        $childCapacity = $room->roomType->child_capacity ?? 1;
-
-        if ($request->adult > $adultCapacity) {
-            return back()->withInput()->withErrors([
-                'adult' => 'Kamar ini hanya muat untuk maksimal ' . $adultCapacity . ' orang dewasa.'
-            ]);
-        }
+    public function roomCatalog(Request $request)
+    {
+        $query = RoomType::query();
         
-        if ($request->child > $childCapacity) {
-            return back()->withInput()->withErrors([
-                'child' => 'Kamar ini hanya muat untuk maksimal ' . $childCapacity . ' anak-anak.'
-            ]);
+        if ($request->filled('adults')) {
+            $query->where('adult_capacity', '>=', $request->adults);
         }
-        
-        $days = max(1, $checkIn->diffInDays($checkOut));
-        $totalPrice = ($room->roomType->price ?? 0) * $days;
-
-        $paymentId = DB::transaction(function () use ($request, $guestId, $totalPrice, $checkIn, $checkOut) {
-            $booking = Booking::create([
-                'guest_id'        => $guestId,
-                'room_id'         => $request->room_id,
-                'check_in'        => $checkIn->format('Y-m-d H:i:s'),
-                'check_out'       => $checkOut->format('Y-m-d H:i:s'),
-                'status'          => 'pending',
-                'total_price'     => $totalPrice,
-                'special_request' => $request->special_request,
-            ]);
-
-            $payment = Payment::create([
-                'booking_id'     => $booking->id,
-                'amount'         => $totalPrice,
-                'payment_status' => 'pending',
-                'payment_method' => 'transfer',
-            ]);
-
-            return $payment->id;
-        });
-
-        return redirect()->route('guest.pay', $paymentId)
-                        ->with('success', 'Booking berhasil! Silakan selesaikan pembayaran Anda.');
-    }
-
-    public function restaurant(Request $request)
-    {
-        $query = RestaurantMenu::query();
-        if ($request->filled('category')) $query->where('category', $request->category);
-        if ($request->filled('search')) $query->where('name', 'like', '%' . $request->search . '%');
-
-        $menus = $query->where('is_available', true)->orderBy('name', 'asc')->paginate(12)->withQueryString();
-
-        $rooms = Room::where('status', 'occupied')->get(); 
-        $activeBooking = null;
-        if (session('guest_id')) {
-            $activeBooking = Booking::with('room')->where('guest_id', session('guest_id'))
-                                    ->whereIn('status', ['confirmed', 'checked_in'])->first();
+        if ($request->filled('children')) {
+            $query->where('child_capacity', '>=', $request->children);
         }
 
-        return view('users.pages.restaurant', compact('menus', 'rooms', 'activeBooking'));
+        $roomTypes = $query->get();
+        return view('users.pages.rooms', compact('roomTypes'));
     }
 
-    public function menuDetail($id)
+    public function roomDetail(RoomType $roomType)
     {
-        $menu = RestaurantMenu::findOrFail($id);
-        $relatedMenus = RestaurantMenu::where('category', $menu->category)->where('id', '!=', $id)->take(3)->get();
-        $rooms = Room::where('status', 'occupied')->get(); 
-        
-        $activeBooking = null;
-        if (session('guest_id')) {
-            $activeBooking = Booking::with('room')->where('guest_id', session('guest_id'))
-                                    ->whereIn('status', ['confirmed', 'checked_in'])->first();
-        }
-
-        return view('users.pages.menu-detail', compact('menu', 'relatedMenus', 'rooms', 'activeBooking'));
+        return view('users.pages.room_detail', compact('roomType'));
     }
 
-    public function storeRestaurantOrder(Request $request)
+    public function menuCatalog()
     {
-        $request->validate([
-            'menu_id' => 'required|exists:restaurant_menus,id',
-            'booking_id' => 'required|exists:bookings,id', 
-            'qty' => 'required|integer|min:1',
-        ]);
-
-        $guestId = session('guest_id');
-        if (!$guestId) return redirect()->route('guest.login')->with('error', 'Silakan login sebagai tamu.');
-
-        $booking = Booking::where('id', $request->booking_id)
-                          ->where('guest_id', $guestId)
-                          ->whereIn('status', ['confirmed', 'checked_in'])
-                          ->firstOrFail();
-
-        $paymentId = DB::transaction(function () use ($request, $guestId, $booking) {
-            $menu = RestaurantMenu::findOrFail($request->menu_id);
-            $subtotal = $menu->price * $request->qty;
-            $totalPrice = $subtotal + round($subtotal * 0.05); 
-
-            $order = RestaurantOrder::create([
-                'guest_id' => $guestId,
-                'room_id' => $booking->room_id, 
-                'total_price' => $totalPrice,
-                'status' => 'placed', 
-                'notes' => $request->notes 
-            ]);
-
-            RestaurantOrderDetail::create([
-                'restaurant_order_id' => $order->id,
-                'restaurant_menu_id' => $menu->id,
-                'quantity' => $request->qty, 
-                'price' => $menu->price,
-            ]);
-
-            $payment = Payment::create([
-                'restaurant_order_id' => $order->id,
-                'amount' => $totalPrice,
-                'payment_status' => 'pending',
-                'payment_method' => 'transfer', 
-            ]);
-
-            return $payment->id;
-        });
-
-        return redirect()->route('guest.pay', $paymentId)
-                         ->with('success', 'Pesanan restoran berhasil dibuat! Silakan selesaikan pembayaran.');
+        $menus = RestaurantMenu::where('is_available', true)->get()->groupBy('category');
+        return view('users.pages.restaurant', compact('menus'));
     }
 
-    public function orderConfirmation($id)
-    {
-        $order = RestaurantOrder::with(['guest', 'room', 'details.menu'])->findOrFail($id);
-        return view('users.pages.order-confirmation', compact('order'));
-    }
-    public function subscribe(Request $request)
-    {
-        $request->validate(['email' => 'required|email']);
-        return response()->json([
-            'message' => 'Terima kasih telah berlangganan! Kami akan mengirimkan info terbaru ke email Anda.'
-        ]);
-    }
+    // ==========================================
+    // AREA PRIVAT TAMU (WAJIB LOGIN)
+    // ==========================================
 
-    public function sendContact(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email',
-            'subject' => 'required|string|max:255',
-            'message' => 'required|string',
-        ]);
-
-        $emailBody = "Anda mendapatkan pesan baru dari form Contact Us Hotel Neo:\n\n";
-        $emailBody .= "Nama: " . $request->name . "\n";
-        $emailBody .= "Email: " . $request->email . "\n";
-        $emailBody .= "Subjek: " . $request->subject . "\n\n";
-        $emailBody .= "Isi Pesan:\n" . $request->message . "\n";
-
-        \Illuminate\Support\Facades\Mail::raw($emailBody, function ($mail) use ($request) {
-            $adminEmail = config('hotel.email', 'info@hotelier.com'); 
-            
-            $mail->to($adminEmail)
-                 ->subject('Pesan Web Hotel Neo: ' . $request->subject)
-                 ->replyTo($request->email, $request->name);
-        });
-
-        return back()->with('success', 'Terima kasih, ' . $request->name . '! Pesan Anda telah kami terima dan terkirim ke tim kami.');
-    }
-    public function guestProfile()
+    public function profile()
     {
         $guestId = session('guest_id');
-        if (!$guestId) {
-            return redirect()->route('guest.login')->with('error', 'Silakan login untuk melihat profil dan riwayat transaksi Anda.');
+        $guest = Guest::with([
+            'bookings.room.roomType', 
+            'restaurantOrders.details.menu', 
+            'packageOrders.package'
+        ])->findOrFail($guestId);
+
+        return view('users.pages.profile', compact('guest'));
+    }
+
+    public function checkoutRoom(Request $request)
+    {
+        $roomTypeId = $request->room_type_id;
+        $roomType = RoomType::findOrFail($roomTypeId);
+        
+        return view('users.pages.checkout_room', compact('roomType'));
+    }
+
+    public function checkoutRestaurant(Request $request)
+    {
+        return view('users.pages.checkout_restaurant');
+    }
+
+    public function customizePackage(Package $package)
+    {
+        $menus = RestaurantMenu::where('is_available', true)->get();
+        return view('users.pages.customize_package', compact('package', 'menus'));
+    }
+
+    public function invoice(Payment $payment)
+    {
+        $guestId = session('guest_id');
+        $isOwner = false;
+
+        if ($payment->booking && $payment->booking->guest_id == $guestId) $isOwner = true;
+        if ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestId) $isOwner = true;
+        if ($payment->packageOrder && $payment->packageOrder->guest_id == $guestId) $isOwner = true;
+
+        if (!$isOwner) {
+            abort(403, 'Akses ditolak.');
         }
 
+        return view('users.pages.invoice', compact('payment'));
+    }
+
+    public function editProfile()
+    {
+        $guestId = session('guest_id');
         $guest = Guest::findOrFail($guestId);
 
-        $bookings = Booking::with(['room.roomType', 'payment'])
-                            ->where('guest_id', $guestId)
-                            ->orderBy('created_at', 'desc')
-                            ->get();
-
-        $restaurantOrders = RestaurantOrder::with(['details.menu', 'payment'])
-                                           ->where('guest_id', $guestId)
-                                           ->orderBy('created_at', 'desc')
-                                           ->get();
-
-        return view('users.pages.profile', compact('guest', 'bookings', 'restaurantOrders'));
+        return view('users.pages.edit_profile', compact('guest'));
     }
+
+    
 }

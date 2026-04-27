@@ -4,33 +4,21 @@
 
 @section('content')
 <style>
-    .modal-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(44,36,32,0.5); backdrop-filter: blur(3px);
-        display: none; align-items: center; justify-content: center;
-        z-index: 1000; opacity: 0; transition: opacity 0.25s ease;
-    }
+    /* Style tetap sama persis seperti milikmu */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44,36,32,0.5); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.25s ease; }
     .modal-overlay.show { display: flex; opacity: 1; }
-    .modal-content {
-        background: #fff; border-radius: var(--radius); width: 100%; max-width: 480px;
-        padding: 24px; border: 1px solid var(--sand2);
-        transform: translateY(16px); transition: transform 0.25s ease;
-    }
+    .modal-content { background: #fff; border-radius: var(--radius); width: 100%; max-width: 550px; padding: 24px; border: 1px solid var(--sand2); transform: translateY(16px); transition: transform 0.25s ease; max-height: 90vh; overflow-y: auto;}
     .modal-overlay.show .modal-content { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .modal-title { font-family: 'Lora', serif; font-size: 16px; color: var(--ink); font-weight: 400; }
+    .modal-title { font-family: 'Lora', serif; font-size: 16px; color: var(--ink); font-weight: 600; }
     .btn-close { background: transparent; border: none; color: var(--ink3); cursor: pointer; font-size: 14px; padding: 4px; }
     .btn-close:hover { color: var(--clay); }
     .form-group { margin-bottom: 14px; }
-    .form-label { display: block; font-size: 11px; font-weight: 500; color: var(--ink2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .form-control {
-        width: 100%; padding: 8px 12px; border: 1px solid var(--sand3);
-        border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif;
-        font-size: 13px; color: var(--ink); background: var(--sand);
-        outline: none; transition: border-color var(--transition);
-    }
+    .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--ink2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--sand3); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--ink); background: var(--sand); outline: none; transition: border-color var(--transition); }
     select.form-control { cursor: pointer; }
     .form-control:focus { border-color: var(--bark); background: #fff; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--sand2); }
 </style>
 
@@ -76,11 +64,11 @@
             <thead>
                 <tr>
                     <th>#ID Order</th>
-                    <th>Tamu</th>
+                    <th>Tamu & Tipe</th>
                     <th>Item Pesanan</th>
                     <th>Total Harga</th>
-                    <th>Status & Tagihan</th>
-                    <th>Waktu Order</th>
+                    <th>Status Dapur</th>
+                    <th>Status Bayar</th>
                     <th style="text-align:center">Aksi</th>
                 </tr>
             </thead>
@@ -88,7 +76,13 @@
                 @forelse($orders as $order)
                 <tr>
                     <td style="font-size:12px;font-weight:500;color:var(--ink)">#O-{{ str_pad($order->id, 4, '0', STR_PAD_LEFT) }}</td>
-                    <td style="font-weight:500;color:var(--ink)">{{ $order->guest->name ?? 'Tamu Dihapus' }}</td>
+                    <td>
+                        <strong style="color:var(--ink); display:block;">{{ $order->guest->name ?? 'Tamu Dihapus' }}</strong>
+                        <span style="font-size:11px;color:var(--ink3);text-transform:capitalize;">
+                            <i class="fas fa-concierge-bell"></i> {{ str_replace('_', ' ', $order->order_type) }} 
+                            {{ $order->table_or_room ? '('.$order->table_or_room.')' : '' }}
+                        </span>
+                    </td>
                     <td style="font-size:12px;color:var(--ink3)">
                         @if($order->details && $order->details->count())
                             <ul style="margin:0; padding-left:15px">
@@ -100,29 +94,33 @@
                             -
                         @endif
                     </td>
-                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($order->total_price ?? 0, 0, ',', '.') }}</td>
+                    <td style="font-weight:600;color:var(--clay)">Rp {{ number_format($order->total_amount ?? 0, 0, ',', '.') }}</td>
                     
                     <td>
-                        @if($order->status === 'paid')
-                            <span class="badge badge-paid" style="background:#c8d8b8; color:#4a7c59; padding:4px 8px; border-radius:4px;">Lunas (Paid)</span>
-                        @else
-                            <span class="badge badge-pending" style="background:#fdebd0; color:#c07850; padding:4px 8px; border-radius:4px;">Dipesan (Ordered)</span>
-                        @endif
-                        
-                        {{-- Memanggil relasi payment secara lazy untuk menampilkan ID Tagihan --}}
-                        @if($order->payment)
-                            <div style="font-size: 10px; margin-top: 6px; color: var(--ink3);">
-                                <i class="fas fa-link" style="color: var(--clay);"></i> Tagihan: #P-{{ str_pad($order->payment->id, 4, '0', STR_PAD_LEFT) }}
-                            </div>
-                        @endif
+                        {{-- Menggunakan Enum Dapur: pending, preparing, served, completed --}}
+                        @php
+                            $badgeColor = '#fdebd0'; $textColor = '#c07850';
+                            if($order->status == 'preparing') { $badgeColor = '#fff3cd'; $textColor = '#856404'; }
+                            if($order->status == 'served') { $badgeColor = '#d1e7dd'; $textColor = '#0f5132'; }
+                            if($order->status == 'completed') { $badgeColor = '#c8d8b8'; $textColor = '#4a7c59'; }
+                        @endphp
+                        <span class="badge" style="background:{{$badgeColor}}; color:{{$textColor}}; padding:4px 8px; border-radius:4px; font-weight:600;">
+                            {{ ucfirst($order->status) }}
+                        </span>
                     </td>
                     
-                    <td style="font-size:12px;color:var(--ink3)">{{ $order->created_at->format('d M Y, H:i') }}</td>
+                    <td>
+                        @if($order->payment && $order->payment->payment_status == 'paid')
+                            <span class="badge" style="background:#d1e7dd; color:#0f5132; padding:4px 8px; border-radius:4px; font-weight:600;">Lunas</span>
+                        @else
+                            <span class="badge" style="background:#f8d7da; color:#842029; padding:4px 8px; border-radius:4px; font-weight:600;">Belum Lunas</span>
+                        @endif
+                    </td>
+
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
-                            <button class="btn btn-outline btn-sm"
-                                onclick="openEditModal('{{ $order->id }}','{{ $order->status }}')">
-                                <i class="fas fa-pen"></i> Update
+                            <button class="btn btn-outline btn-sm" onclick="openEditModal('{{ $order->id }}','{{ $order->status }}')">
+                                <i class="fas fa-clipboard-check"></i> Proses
                             </button>
                             <form id="delete-form-{{ $order->id }}" action="{{ route('admin.orders.destroy', $order->id) }}" method="POST" style="display:none">
                                 @csrf @method('DELETE')
@@ -136,8 +134,8 @@
                 @empty
                 <tr>
                     <td colspan="7">
-                        <div class="empty-state">
-                            <i class="fas fa-receipt"></i>
+                        <div class="empty-state" style="text-align: center; padding: 30px;">
+                            <i class="fas fa-receipt" style="font-size: 32px; color: var(--sand3); margin-bottom: 10px;"></i>
                             <p>Belum ada data order restoran.</p>
                         </div>
                     </td>
@@ -146,33 +144,29 @@
             </tbody>
         </table>
     </div>
-
-    @if(isset($orders) && method_exists($orders, 'links'))
-    <div style="padding:12px 20px;border-top:1px solid var(--sand2)">
-        {{ $orders->links() }}
-    </div>
-    @endif
 </div>
 
-{{-- Modal Update Status --}}
+{{-- Modal Update Status Dapur --}}
 <div class="modal-overlay" id="modalEdit">
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-title">Update Status Order</div>
-            <button class="btn-close" onclick="closeModal('modalEdit')"><i class="fas fa-times"></i></button>
+            <div class="modal-title">Update Status Dapur</div>
+            <button class="btn-close" type="button" onclick="closeModal('modalEdit')"><i class="fas fa-times"></i></button>
         </div>
         <form id="formEditOrder" method="POST">
             @csrf @method('PUT')
             <div class="form-group">
                 <label class="form-label">Status Pesanan</label>
                 <select name="status" id="edit_status" class="form-control" required>
-                    <option value="ordered">Dipesan (Ordered)</option>
-                    <option value="paid">Lunas (Paid)</option>
+                    <option value="pending">Menunggu (Pending)</option>
+                    <option value="preparing">Dimasak (Preparing)</option>
+                    <option value="served">Dihidangkan (Served)</option>
+                    <option value="completed">Selesai (Completed)</option>
                 </select>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalEdit')">Batal</button>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Status</button>
             </div>
         </form>
     </div>
@@ -183,18 +177,39 @@
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
             <div class="modal-title">Tambah Order Restoran</div>
-            <button class="btn-close" onclick="closeModal('modalAdd')"><i class="fas fa-times"></i></button>
+            <button class="btn-close" type="button" onclick="closeModal('modalAdd')"><i class="fas fa-times"></i></button>
         </div>
         <form action="{{ route('admin.orders.store') }}" method="POST">
             @csrf
-            <div class="form-group">
-                <label class="form-label">Tamu (Pemesan)</label>
-                <select name="guest_id" class="form-control" required>
-                    <option value="">-- Pilih Tamu --</option>
-                    @foreach($guests as $guest)
-                        <option value="{{ $guest->id }}">{{ $guest->name }}</option>
-                    @endforeach
-                </select>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Tamu (Pemesan)</label>
+                    <select name="guest_id" class="form-control" required>
+                        <option value="">-- Pilih Tamu --</option>
+                        @foreach($guests as $guest)
+                            <option value="{{ $guest->id }}">{{ $guest->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipe Layanan</label>
+                    <select name="order_type" class="form-control" required>
+                        <option value="dine_in">Dine In (Makan di Tempat)</option>
+                        <option value="in_room">In-Room (Antar ke Kamar)</option>
+                        <option value="takeaway">Takeaway (Bungkus)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Nomor Meja / Kamar (Opsional)</label>
+                    <input type="text" name="table_or_room" class="form-control" placeholder="Cth: Meja 04 atau Kamar 102">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Catatan Tambahan (Opsional)</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Cth: Jangan terlalu pedas">
+                </div>
             </div>
             
             <hr style="border-color: var(--sand2); margin: 20px 0;">
@@ -216,7 +231,7 @@
                     <div style="flex: 1;">
                         <input type="number" name="qty[]" class="form-control" placeholder="Qty" min="1" value="1" required>
                     </div>
-                    <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()" style="padding: 0 12px;"><i class="fas fa-times"></i></button>
+                    <button type="button" class="btn btn-danger" onclick="removeRow(this)" style="padding: 0 12px;"><i class="fas fa-times"></i></button>
                 </div>
             </div>
 
@@ -244,7 +259,7 @@
     function confirmDelete(id) {
         Swal.fire({
             title: 'Hapus Order?',
-            text: 'Data order ini akan dihapus permanen. Tagihan yang terhubung juga akan ikut terhapus.',
+            text: 'Data order dan detailnya akan dihapus permanen. Tagihan yang terhubung juga akan ikut terhapus.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#c07850',
@@ -257,13 +272,19 @@
 
     function addMenuRow() {
         const container = document.getElementById('menu-container');
-        // Kloning baris menu pertama
         const firstRow = container.querySelector('.menu-row').cloneNode(true);
-        // Reset nilainya
         firstRow.querySelector('select').value = '';
         firstRow.querySelector('input').value = '1';
-        // Tambahkan ke container
         container.appendChild(firstRow);
+    }
+
+    function removeRow(btn) {
+        const rows = document.querySelectorAll('.menu-row');
+        if(rows.length > 1) {
+            btn.parentElement.remove();
+        } else {
+            Swal.fire({ icon: 'error', title: 'Oops...', text: 'Pesanan minimal harus memiliki 1 menu!' });
+        }
     }
 
     document.getElementById('searchInput').addEventListener('input', function () {

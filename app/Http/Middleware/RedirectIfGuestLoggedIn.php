@@ -11,7 +11,7 @@ class RedirectIfGuestLoggedIn
     public function handle(Request $request, Closure $next): Response
     {
         if (session()->has('guest_id')) {
-            return redirect()->route('guest.profile')->with('success', 'Anda sudah masuk/login.');
+            return back()->with('info', 'Anda sudah login.');
         }
 
         return $next($request);

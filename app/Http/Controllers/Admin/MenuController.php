@@ -5,77 +5,93 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantMenu;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class MenuController extends Controller
 {
     public function index()
     {
-        $menus = RestaurantMenu::orderBy('name', 'asc')->get();
+        $menus = RestaurantMenu::latest()->get();
         return view('admin.menu.index', compact('menus'));
+    }
+
+    public function create()
+    {
+        return view('admin.menus.create');
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
-            'category' => 'required|string', 
+            'category' => 'required|in:food,drink,dessert,snack,paket', 
             'price' => 'required|numeric|min:0',
-            'is_available' => 'required|boolean', 
             'description' => 'nullable|string',
-            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+            'prep_time' => 'nullable|integer|min:0',
+            'calories' => 'nullable|integer|min:0',
+            'allergens' => 'nullable|string|max:255',
+            'serving' => 'nullable|string|max:100',
+            'rating' => 'nullable|numeric|min:0|max:5',
+            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
+        $data = $request->except('foto_url');
+        
+        $data['is_available'] = $request->has('is_available');
+
+        // Logika Upload Foto
         if ($request->hasFile('foto_url')) {
-            $file = $request->file('foto_url');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('images/menus'), $filename);
-            
-            $validated['foto_url'] = 'images/menus/' . $filename;
+            $data['foto_url'] = $request->file('foto_url')->store('menus', 'public');
         }
 
-        RestaurantMenu::create($validated);
+        RestaurantMenu::create($data);
 
-        return redirect()->route('admin.menus')->with('success', 'Menu baru berhasil ditambahkan!');
+        return redirect()->route('admin.menus.index')->with('success', 'Menu Restoran berhasil ditambahkan!');
+    }
+
+    public function edit(RestaurantMenu $menu)
+    {
+        return view('admin.menus.edit', compact('menu'));
     }
 
     public function update(Request $request, RestaurantMenu $menu)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
-            'category' => 'required|string',
+            'category' => 'required|in:food,drink,dessert,snack,paket',
             'price' => 'required|numeric|min:0',
-            'is_available' => 'required|boolean',
             'description' => 'nullable|string',
-            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'prep_time' => 'nullable|integer|min:0',
+            'calories' => 'nullable|integer|min:0',
+            'allergens' => 'nullable|string|max:255',
+            'serving' => 'nullable|string|max:100',
+            'rating' => 'nullable|numeric|min:0|max:5',
+            'foto_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        if ($request->hasFile('foto_url')) {
-            // Hapus file lama jika ada
-            if ($menu->foto_url && File::exists(public_path($menu->foto_url))) {
-                File::delete(public_path($menu->foto_url));
-            }
+        $data = $request->except('foto_url');
+        $data['is_available'] = $request->has('is_available');
 
-            $file = $request->file('foto_url');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('images/menus'), $filename);
-            
-            $validated['foto_url'] = 'images/menus/' . $filename;
+        if ($request->hasFile('foto_url')) {
+            if ($menu->foto_url) {
+                Storage::disk('public')->delete($menu->foto_url);
+            }
+            $data['foto_url'] = $request->file('foto_url')->store('menus', 'public');
         }
 
-        $menu->update($validated);
+        $menu->update($data);
 
-        return redirect()->route('admin.menus')->with('success', 'Data menu berhasil diperbarui!');
+        return redirect()->route('admin.menus.index')->with('success', 'Menu Restoran berhasil diperbarui!');
     }
 
     public function destroy(RestaurantMenu $menu)
     {
-        if ($menu->foto_url && File::exists(public_path($menu->foto_url))) {
-            File::delete(public_path($menu->foto_url));
+        if ($menu->foto_url) {
+            Storage::disk('public')->delete($menu->foto_url);
         }
         
         $menu->delete();
-        
-        return redirect()->route('admin.menus')->with('success', 'Menu berhasil dihapus!');
+
+        return redirect()->route('admin.menus.index')->with('success', 'Menu Restoran berhasil dihapus!');
     }
 }

@@ -1,8 +1,23 @@
 @extends('users.layouts.app')
 
-@section('title', 'Hotel Neo - Hotel & Resort | Home')
+@section('title', 'Beranda')
 
 @section('content')
+
+{{-- ═══════════════════════════════════════
+     PROMO BANNER (MUNCUL JIKA ADA PROMO)
+═══════════════════════════════════════ --}}
+@if(isset($activeDiscounts) && $activeDiscounts->count() > 0)
+<div class="container-fluid bg-warning text-dark py-2 px-0 text-center fw-bold shadow-sm" style="z-index: 99; position: relative;">
+    <marquee behavior="scroll" direction="left" scrollamount="6">
+        @foreach($activeDiscounts as $promo)
+            🎉 <strong>PROMO SPESIAL: {{ $promo->name }}!</strong> Dapatkan potongan 
+            {{ $promo->discount_type == 'percentage' ? $promo->discount_value.'%' : 'Rp '.number_format($promo->discount_value, 0, ',', '.') }} 
+            (Berlaku untuk: {{ str_replace('_', ' ', $promo->applicable_to) }} hingga {{ \Carbon\Carbon::parse($promo->valid_until)->format('d M Y') }}). &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        @endforeach
+    </marquee>
+</div>
+@endif
 
 {{-- ═══════════════════════════════════════
      HERO CAROUSEL
@@ -21,19 +36,14 @@
                         <div class="col-lg-7 text-start">
                             <p class="fs-4 text-white animated slideInRight">{{ $slide['subtitle'] }}</p>
                             <h1 class="display-1 text-white mb-5 animated slideInRight">{{ $slide['title'] }}</h1>
-                            <a href="{{ route('rooms') }}" class="btn btn-primary py-3 px-5 me-3 animated slideInRight">
+                            <a href="{{ route('rooms.index') }}" class="btn btn-primary py-3 px-5 me-3 animated slideInRight">
                                 Book A Room
                             </a>
-                            @guest
+                            @if(!session()->has('guest_id'))
                                 <a href="{{ route('guest.login') }}" class="btn btn-outline-light py-3 px-5 animated slideInRight">
                                     Login / Register
                                 </a>
-                            @endguest
-                            @auth
-                                <a href="{{ route('rooms') }}" class="btn btn-outline-light py-3 px-5 animated slideInRight">
-                                    Explore Rooms
-                                </a>
-                            @endauth
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -57,13 +67,13 @@
 <div class="container-fluid booking pb-5 wow fadeIn" data-wow-delay="0.1s">
     <div class="container">
         <div class="bg-white shadow" style="padding: 35px;">
-            <form action="{{ route('rooms') }}" method="GET">
+            <form action="{{ route('rooms.index') }}" method="GET">
                 <div class="row g-2">
                     <div class="col-md-3">
-                        <input type="text" name="check_in" class="form-control datetimepicker-input" placeholder="Check In" data-toggle="datetimepicker" value="{{ request('check_in') }}">
+                        <input type="date" name="check_in" class="form-control" placeholder="Check In" value="{{ request('check_in') }}">
                     </div>
                     <div class="col-md-3">
-                        <input type="text" name="check_out" class="form-control datetimepicker-input" placeholder="Check Out" data-toggle="datetimepicker" value="{{ request('check_out') }}">
+                        <input type="date" name="check_out" class="form-control" placeholder="Check Out" value="{{ request('check_out') }}">
                     </div>
                     <div class="col-md-2">
                         <select name="adult" class="form-select">
@@ -95,11 +105,11 @@
     <div class="container">
         <div class="row g-5 align-items-center">
             <div class="col-lg-6">
-                <h6 class="section-title text-start text-primary text-uppercase">About Us</h6>
-                <h1 class="mb-4">Welcome to <span class="text-primary text-uppercase">Hotel Neo</span></h1>
-                <p class="mb-4">{{ $aboutText ?? 'Nikmati kenyamanan paripurna dan layanan bintang lima di Hotel Neo. Pilihan tepat untuk staycation maupun perjalanan bisnis Anda.' }}</p>
+                <h6 class="section-title text-start text-primary text-uppercase">Tentang Kami</h6>
+                <h1 class="mb-4">Selamat Datang di <span class="text-primary text-uppercase">Hotel Neo</span></h1>
+                <p class="mb-4">Nikmati kenyamanan paripurna dan layanan bintang lima di Hotel Neo. Pilihan tepat untuk staycation maupun perjalanan bisnis Anda dengan fasilitas berkelas dunia.</p>
                 <div class="row gy-2 gx-4 mb-4">
-                    @foreach(['All Rooms Air Conditioned', 'Morning Breakfast', 'Food Court', 'Sports Facility', 'Airport Transfer', 'Spa & Fitness', 'Bar & Restaurant', 'Swimming Pool'] as $feature)
+                    @foreach(['AC di Setiap Kamar', 'Sarapan Pagi', 'Restoran Bintang 5', 'Pusat Kebugaran', 'Layanan Antar Bandara', 'Spa Terapi', 'Wi-Fi Kecepatan Tinggi', 'Kolam Renang'] as $feature)
                     <div class="col-sm-6">
                         <p class="mb-0"><i class="fa fa-arrow-right text-primary me-2"></i>{{ $feature }}</p>
                     </div>
@@ -127,88 +137,145 @@
 </div>
 
 {{-- ═══════════════════════════════════════
-     OUR ROOMS (SINKRON DENGAN DATABASE)
+     OUR ROOMS (MENGGUNAKAN ROOMTYPE)
 ═══════════════════════════════════════ --}}
 <div class="container-fluid py-5">
     <div class="container">
         <div class="text-center wow fadeInUp" data-wow-delay="0.1s">
-            <h6 class="section-title text-center text-primary text-uppercase">Our Rooms</h6>
-            <h1 class="mb-5">Explore Our <span class="text-primary text-uppercase">Luxurious</span> Rooms</h1>
+            <h6 class="section-title text-center text-primary text-uppercase">Kamar Kami</h6>
+            <h1 class="mb-5">Eksplorasi Kamar <span class="text-primary text-uppercase">Mewah</span> Kami</h1>
         </div>
         <div class="row g-4">
-            {{-- Mengambil data Room beserta relasi RoomType --}}
-            @forelse($rooms as $room)
+            @forelse($featuredRooms as $type)
             <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
                 <div class="room-item shadow rounded overflow-hidden">
                     <div class="position-relative">
-                        {{-- Gunakan Null-safe operator (?->) agar kebal dari error --}}
                         <img class="img-fluid w-100" 
-                             src="{{ $room->roomType?->foto ? asset($room->roomType->foto) : asset('img/room-1.jpg') }}" 
-                             alt="{{ $room->roomType?->name ?? 'Room' }}">
+                             src="{{ $type->foto ? asset('storage/' . $type->foto) : asset('img/room-1.jpg') }}" 
+                             alt="{{ $type->name }}" style="height: 250px; object-fit: cover;">
                         <small class="position-absolute start-0 top-100 translate-middle-y bg-primary text-white rounded py-1 px-3 ms-4">
-                            Rp {{ number_format($room->roomType?->price ?? 0, 0, ',', '.') }}/Night
+                            Rp {{ number_format($type->price, 0, ',', '.') }}/Malam
                         </small>
                     </div>
                     <div class="p-4 mt-2">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">{{ $room->roomType?->name ?? 'Tipe Kamar Dihapus' }} <br><span class="fs-6 text-muted">No. {{ $room->room_number }}</span></h5>
-                            <div>
-                                @for($i = 1; $i <= ($room->roomType?->rating ?? 0); $i++)
-                                    <small class="fa fa-star text-primary"></small>
-                                @endfor
+                            <h5 class="mb-0">{{ $type->name }}</h5>
+                            <div class="ps-2">
+                                <small class="fa fa-star text-primary"></small>
+                                <small class="fa fa-star text-primary"></small>
+                                <small class="fa fa-star text-primary"></small>
+                                <small class="fa fa-star text-primary"></small>
+                                <small class="fa fa-star text-primary"></small>
                             </div>
                         </div>
                         <div class="d-flex mb-3">
-                            <small class="border-end me-3 pe-3">
-                                <i class="fa fa-users text-primary me-2"></i>{{ $room->roomType->adult_capacity }} Adult
-                            </small>
-                            <small class="border-end me-3 pe-3">
-                                <i class="fa fa-baby text-primary me-2"></i>{{ $room->roomType->child_capacity }} Child
-                            </small>
-                            <small>
-                                <i class="fa fa-bed text-primary me-2"></i>{{ $room->roomType->bed_type }}
-                            </small>
+                            <small class="border-end me-3 pe-3"><i class="fa fa-bed text-primary me-2"></i>{{ $type->bed_type }}</small>
+                            <small class="border-end me-3 pe-3"><i class="fa fa-bath text-primary me-2"></i>{{ $type->bath_count }} Bath</small>
+                            <small><i class="fa fa-user text-primary me-2"></i>{{ $type->adult_capacity }} Dewasa</small>
                         </div>
-                        <p class="text-body mb-3">{{ Str::limit($room->roomType?->description ?? 'Deskripsi tidak tersedia karena tipe kamar ini tidak ditemukan.', 90) }}</p>
+                        <p class="text-body mb-3">{{ Str::limit($type->description, 80) }}</p>
                         <div class="d-flex justify-content-between">
-                            <a class="btn btn-sm btn-primary rounded py-2 px-4" href="{{ route('room.detail', $room->id) }}">View Detail</a>
-                            
-                            <a class="btn btn-sm btn-dark rounded py-2 px-4" href="{{ route('booking', ['room' => $room->id]) }}">Book Now</a>
+                            <a class="btn btn-sm btn-primary rounded py-2 px-4" href="{{ route('rooms.show', $type->id) }}">Detail Kamar</a>
+                            <a class="btn btn-sm btn-dark rounded py-2 px-4" href="{{ route('checkout.room', ['room_type_id' => $type->id]) }}">Pesan Sekarang</a>
                         </div>
                     </div>
                 </div>
             </div>
             @empty
-            <div class="col-12 text-center text-muted">Belum ada kamar tersedia.</div>
+            <div class="col-12 text-center text-muted">Belum ada tipe kamar yang tersedia.</div>
             @endforelse
         </div>
     </div>
 </div>
 
 {{-- ═══════════════════════════════════════
-     OUR TEAM (FILTERED ROLES)
+     RESTAURANT & MENUS
+═══════════════════════════════════════ --}}
+<div class="container-fluid py-5 bg-dark text-light" style="margin-top: 50px; margin-bottom: 50px;">
+    <div class="container py-5">
+        <div class="text-center wow fadeInUp" data-wow-delay="0.1s">
+            <h6 class="section-title text-center text-primary text-uppercase">Restoran Kami</h6>
+            <h1 class="mb-5 text-white">Cicipi Hidangan <span class="text-primary text-uppercase">Bintang Lima</span></h1>
+        </div>
+        <div class="row g-4">
+            @forelse($featuredMenus as $menu)
+            <div class="col-lg-6 wow fadeInUp" data-wow-delay="0.1s">
+                <div class="d-flex align-items-center bg-white rounded p-3 shadow-sm">
+                    <img class="flex-shrink-0 rounded" src="{{ $menu->foto_url ? asset('storage/' . $menu->foto_url) : asset('img/menu-1.jpg') }}" alt="{{ $menu->name }}" style="width: 100px; height: 100px; object-fit: cover;">
+                    <div class="w-100 d-flex flex-column text-start ps-4">
+                        <h5 class="d-flex justify-content-between border-bottom pb-2 text-dark">
+                            <span>{{ $menu->name }}</span>
+                            <span class="text-primary">Rp {{ number_format($menu->price, 0, ',', '.') }}</span>
+                        </h5>
+                        <small class="text-muted">{{ Str::limit($menu->description, 60) }}</small>
+                    </div>
+                </div>
+            </div>
+            @empty
+            <div class="col-12 text-center text-white">Menu belum tersedia.</div>
+            @endforelse
+            <div class="col-12 text-center mt-5 wow fadeInUp" data-wow-delay="0.3s">
+                <a href="{{ route('restaurant.index') }}" class="btn btn-primary py-3 px-5">Lihat Semua Menu</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════
+     PACKAGES / BUNDLING
 ═══════════════════════════════════════ --}}
 <div class="container-fluid py-5">
     <div class="container">
         <div class="text-center wow fadeInUp" data-wow-delay="0.1s">
-            <h6 class="section-title text-center text-primary text-uppercase">Our Team</h6>
-            <h1 class="mb-5">Meet Our <span class="text-primary text-uppercase">Expert</span> Team</h1>
+            <h6 class="section-title text-center text-primary text-uppercase">Paket Penawaran</h6>
+            <h1 class="mb-5">Paket <span class="text-primary text-uppercase">Spesial</span> Untuk Anda</h1>
+        </div>
+        <div class="row g-4">
+            @forelse($packages as $pkg)
+            <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
+                <div class="rounded shadow overflow-hidden border border-light">
+                    <div class="p-4 text-center bg-light">
+                        <h4 class="fw-bold mb-3">{{ $pkg->name }}</h4>
+                        <h2 class="text-primary mb-0">Rp {{ number_format($pkg->total_price, 0, ',', '.') }}</h2>
+                    </div>
+                    <div class="p-4 bg-white">
+                        <p class="text-muted text-center mb-4">{{ $pkg->description }}</p>
+                        @if($pkg->roomType)
+                            <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                                <span>Termasuk Kamar:</span>
+                                <span class="fw-bold">{{ $pkg->roomType->name }}</span>
+                            </div>
+                        @endif
+                        <a class="btn btn-primary w-100 mt-3" href="{{ route('package.customize', $pkg->id) }}">Beli Paket Ini</a>
+                    </div>
+                </div>
+            </div>
+            @empty
+            <div class="col-12 text-center text-muted">Belum ada paket bundling khusus saat ini.</div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════
+     OUR TEAM
+═══════════════════════════════════════ --}}
+<div class="container-fluid py-5">
+    <div class="container">
+        <div class="text-center wow fadeInUp" data-wow-delay="0.1s">
+            <h6 class="section-title text-center text-primary text-uppercase">Tim Kami</h6>
+            <h1 class="mb-5">Bertemu Dengan <span class="text-primary text-uppercase">Staf Ahli</span> Kami</h1>
         </div>
         <div class="row g-4">
             @forelse($staffs as $staff)
             <div class="col-lg-3 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
                 <div class="rounded shadow overflow-hidden">
-                    <div class="position-relative">
-                        <img class="img-fluid w-100" src="{{ $staff->foto ? asset($staff->foto) : asset('img/team-1.jpg') }}" alt="{{ $staff->name }}">
-                        <div class="position-absolute start-50 top-100 translate-middle d-flex align-items-center">
-                            <a class="btn btn-square btn-primary mx-1" href="#"><i class="fab fa-facebook-f"></i></a>
-                            <a class="btn btn-square btn-primary mx-1" href="#"><i class="fab fa-instagram"></i></a>
-                        </div>
+                    <div class="position-relative text-center bg-light p-4">
+                        <img class="img-fluid rounded-circle mb-3" src="{{ $staff->foto ? asset('storage/' . $staff->foto) : asset('img/team-1.jpg') }}" alt="{{ $staff->name }}" style="width: 150px; height: 150px; object-fit: cover;">
                     </div>
-                    <div class="text-center p-4 mt-3">
+                    <div class="text-center p-4 mt-1 bg-white">
                         <h5 class="fw-bold mb-0">{{ $staff->name }}</h5>
-                        {{-- Mengambil nama role dari tabel roles (contoh: Kepala Pelayan) --}}
-                        <small class="text-primary text-uppercase fw-bold">{{ $staff->role->name ?? 'Staff' }}</small>
+                        <small class="text-primary text-uppercase fw-bold">{{ $staff->role->name ?? 'Staf Hotel' }}</small>
                     </div>
                 </div>
             </div>

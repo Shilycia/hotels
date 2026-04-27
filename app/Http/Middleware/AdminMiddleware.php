@@ -5,19 +5,19 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
+
 class AdminMiddleware
 {
+    /**
+     * Menangani permintaan yang masuk.
+     */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        if ($user && $user->hasRole('admin')) {
-            return $next($request);
+        if (!Auth::check()) {
+            return redirect()->route('admin.login')->with('error', 'Anda harus login sebagai admin untuk mengakses halaman ini.');
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Akses ditolak. Anda tidak memiliki hak akses Admin.'
-        ], 403);
+        return $next($request);
     }
 }

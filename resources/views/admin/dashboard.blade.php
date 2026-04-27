@@ -1,191 +1,96 @@
 @extends('admin.admin')
 
-@section('title', 'Dashboard')
+@section('title', 'Laporan Keuangan')
 
 @section('content')
+<div class="section-header">
+    <div>
+        <div class="section-title">Laporan Pendapatan Hotel</div>
+        <div class="section-desc">Ringkasan tagihan lunas berdasarkan rentang waktu tertentu.</div>
+    </div>
+</div>
+
+{{-- Form Filter Tanggal --}}
+<div class="table-card" style="padding: 20px; margin-bottom: 20px; background: var(--surface);">
+    <form action="{{ route('admin.reports.index') }}" method="GET" style="display: flex; gap: 15px; align-items: flex-end;">
+        <div>
+            <label class="form-label">Dari Tanggal</label>
+            <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" style="width: auto;">
+        </div>
+        <div>
+            <label class="form-label">Sampai Tanggal</label>
+            <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" style="width: auto;">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Terapkan Filter</button>
+        <a href="{{ route('admin.reports.index') }}" class="btn btn-outline">Reset</a>
+    </form>
+</div>
+
+{{-- Kartu Ringkasan --}}
 <div class="stats-grid">
-    <div class="stat-card">
+    <div class="stat-card" style="border-left: 4px solid var(--moss);">
         <div class="stat-top">
-            <div class="stat-label">Total Pengguna</div>
-            <div class="stat-icon slate"><i class="fas fa-user"></i></div>
+            <div class="stat-label">Pendapatan Kamar</div>
         </div>
-        <div class="stat-value">{{ number_format($widgets['total_users'] ?? 0) }}</div>
-        <div class="stat-footer">
-            <span class="stat-neutral">Akun Staff & Admin</span>
-        </div>
+        <div class="stat-value sm">Rp {{ number_format($roomRevenue, 0, ',', '.') }}</div>
     </div>
-
-    <div class="stat-card">
+    <div class="stat-card" style="border-left: 4px solid var(--clay);">
         <div class="stat-top">
-            <div class="stat-label">Kamar Terisi</div>
-            <div class="stat-icon moss"><i class="fas fa-bed"></i></div>
+            <div class="stat-label">Pendapatan Restoran</div>
         </div>
-        <div class="stat-value">
-            {{ $widgets['occupied_rooms'] ?? 0 }}
-            <sub>/ {{ $widgets['total_rooms'] ?? 0 }}</sub>
-        </div>
-        <div class="stat-footer">
-            <span class="stat-neutral">Occupancy kamar saat ini</span>
-        </div>
+        <div class="stat-value sm">Rp {{ number_format($fnbRevenue, 0, ',', '.') }}</div>
     </div>
-
-    <div class="stat-card">
+    <div class="stat-card" style="border-left: 4px solid #00A5CF;">
         <div class="stat-top">
-            <div class="stat-label">Order Restoran</div>
-            <div class="stat-icon clay"><i class="fas fa-utensils"></i></div>
+            <div class="stat-label">Pendapatan Paket</div>
         </div>
-        <div class="stat-value">{{ number_format($widgets['total_resto_orders']) }}</div>
-        <div class="stat-footer">
-            <span class="stat-neutral">Total order tercatat</span>
-        </div>
+        <div class="stat-value sm">Rp {{ number_format($packageRevenue, 0, ',', '.') }}</div>
     </div>
-
-    <div class="stat-card">
+    <div class="stat-card" style="background: var(--sand2);">
         <div class="stat-top">
-            <div class="stat-label">Total Pendapatan</div>
-            <div class="stat-icon bark"><i class="fas fa-money-bill-wave"></i></div>
+            <div class="stat-label">Total Keseluruhan</div>
         </div>
-        <div class="stat-value sm">Rp {{ number_format($widgets['total_revenue'] ?? 0, 0, ',', '.') }}</div>
-        <div class="stat-footer">
-            <span class="stat-up"><i class="fas fa-arrow-trend-up"></i> Akumulasi Transaksi Lunas</span>
-        </div>
+        <div class="stat-value" style="color: var(--bark);">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</div>
     </div>
 </div>
 
-<div class="charts-grid">
-    <div class="chart-card">
-        <div class="card-header">
-            <div>
-                <div class="card-title">Tren Pendapatan</div>
-                <div class="card-sub">Booking 6 Bulan Terakhir</div>
-            </div>
-        </div>
-        <canvas id="incomeChart" height="90"></canvas>
-    </div>
-
-    <div class="chart-card">
-        <div class="card-header">
-            <div>
-                <div class="card-title">Komposisi Pendapatan</div>
-                <div class="card-sub">Booking vs Restoran</div>
-            </div>
-        </div>
-        <canvas id="donutChart" height="160"></canvas>
-    </div>
-</div>
-
+{{-- Tabel Data Transaksi Lunas --}}
 <div class="table-card">
     <div class="table-card-header">
-        <div class="table-card-title">Booking Terbaru</div>
-        <div class="table-card-actions">
-            <div class="search-wrap">
-                <i class="fas fa-search"></i>
-                <input class="search-input" placeholder="Cari tamu atau kamar...">
-            </div>
-            <a href="{{ route('admin.bookings') }}" class="btn btn-primary btn-sm">
-                <i class="fas fa-list"></i> Lihat Semua
-            </a>
-        </div>
+        <div class="table-card-title">Rincian Transaksi ({{ \Carbon\Carbon::parse($startDate)->format('d M') }} - {{ \Carbon\Carbon::parse($endDate)->format('d M Y') }})</div>
     </div>
     <div style="overflow-x:auto">
         <table>
             <thead>
                 <tr>
-                    <th>#ID</th>
-                    <th>Tamu</th>
-                    <th>Kamar</th>
-                    <th>Status Pembayaran</th>
+                    <th>Waktu Lunas</th>
+                    <th>ID Tagihan</th>
+                    <th>Kategori Layanan</th>
+                    <th>Metode Pembayaran</th>
                     <th>Total Nominal</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($recentBookings as $booking)
+                @forelse($payments as $payment)
                 <tr>
-                    <td><strong style="color:var(--ink);font-size:12px;">#B-{{ str_pad($booking->id, 4, '0', STR_PAD_LEFT) }}</strong></td>
-                    <td style="font-weight:500;color:var(--ink)">{{ $booking->guest->name ?? 'Tamu Tidak Diketahui' }}</td>
-                    <td>{{ $booking->room->room_number ?? 'Kamar Dihapus' }}</td>
+                    <td style="font-size:12px;color:var(--ink3)">{{ \Carbon\Carbon::parse($payment->paid_at)->format('d M Y, H:i') }}</td>
+                    <td style="font-weight:600;color:var(--ink)">#P-{{ str_pad($payment->id, 4, '0', STR_PAD_LEFT) }}</td>
                     <td>
-                        {{-- Mengikuti status enum database yang kita pakai sekarang --}}
-                        @if(in_array($booking->status, ['confirmed', 'checked_in', 'checked_out']))
-                            <span class="badge badge-paid" style="background:#c8d8b8; color:#4a7c59; padding:4px 8px; border-radius:4px;">Confirmed/Paid</span>
-                        @elseif($booking->status == 'pending')
-                            <span class="badge badge-pending" style="background:#fdebd0; color:#c07850; padding:4px 8px; border-radius:4px;">Waiting Payment</span>
-                        @else
-                            <span class="badge badge-cancelled" style="background:#f5c6cb; color:#721c24; padding:4px 8px; border-radius:4px;">Batal/Gagal</span>
+                        @if($payment->booking_id) <span class="badge" style="background:var(--moss-soft); color:var(--moss);">Kamar</span>
+                        @elseif($payment->restaurant_order_id) <span class="badge" style="background:var(--clay-soft); color:var(--clay);">Restoran</span>
+                        @elseif($payment->package_order_id) <span class="badge" style="background:#e0f7fa; color:#007b8f;">Paket</span>
                         @endif
                     </td>
-                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($booking->total_price ?? 0, 0, ',', '.') }}</td>
+                    <td style="text-transform: capitalize; color:var(--ink2);">{{ str_replace('_', ' ', $payment->payment_method) }}</td>
+                    <td style="font-weight:600;color:var(--bark)">Rp {{ number_format($payment->amount, 0, ',', '.') }}</td>
                 </tr>
                 @empty
-                {{-- Empty state tetap sama --}}
+                <tr>
+                    <td colspan="5" style="text-align:center; padding: 20px; color:var(--ink3);">Tidak ada data transaksi lunas pada rentang tanggal ini.</td>
+                </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const sandStroke = '#ede8e0';
-    const mossFull   = '#4a7c59';
-    const mossLight  = '#c8d8b8';
-    const clay       = '#c07850';
-    const ink3       = '#9e9088';
-
-    // Ambil data dinamis dari Controller yang di-inject via PHP
-    const chartLabels = {!! json_encode($chartLabels) !!};
-    const chartDataValues = {!! json_encode($chartData) !!};
-    const donutDataValues = {!! json_encode($donutData) !!};
-
-    const ctxLine = document.getElementById('incomeChart').getContext('2d');
-    new Chart(ctxLine, {
-        type: 'bar',
-        data: {
-            labels: chartLabels, // <-- Data dinamis
-            datasets: [{
-                label: 'Jumlah Booking',
-                data: chartDataValues, // <-- Data dinamis
-                backgroundColor: ['#c8d8b8','#c8d8b8','#b5cba3','#c8d8b8','#8ab87a', mossFull],
-                borderRadius: 4,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { color: sandStroke }, ticks: { color: ink3, font: { size: 10 }, precision: 0 } },
-                x: { grid: { display: false }, ticks: { color: ink3, font: { size: 10 } } }
-            }
-        }
-    });
-
-    const ctxDonut = document.getElementById('donutChart').getContext('2d');
-    new Chart(ctxDonut, {
-        type: 'doughnut',
-        data: {
-            labels: ['Booking Kamar', 'Order Restoran'],
-            datasets: [{
-                data: donutDataValues, // <-- Data dinamis
-                backgroundColor: [mossFull, clay],
-                borderWidth: 0,
-                hoverOffset: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            cutout: '72%',
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: { color: ink3, font: { size: 11 }, boxWidth: 10, padding: 14 }
-                }
-            }
-        }
-    });
-});
-</script>
-@endpush

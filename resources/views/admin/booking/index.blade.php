@@ -4,32 +4,18 @@
 
 @section('content')
 <style>
-    .modal-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(44,36,32,0.5); backdrop-filter: blur(3px);
-        display: none; align-items: center; justify-content: center;
-        z-index: 1000; opacity: 0; transition: opacity 0.25s ease;
-    }
+    /* ... (Gaya CSS tetap sama seperti milikmu) ... */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44,36,32,0.5); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.25s ease; }
     .modal-overlay.show { display: flex; opacity: 1; }
-    .modal-content {
-        background: #fff; border-radius: var(--radius); width: 100%; max-width: 500px;
-        padding: 24px; border: 1px solid var(--sand2);
-        transform: translateY(16px); transition: transform 0.25s ease;
-        max-height: 90vh; overflow-y: auto;
-    }
+    .modal-content { background: #fff; border-radius: 8px; width: 100%; max-width: 500px; padding: 24px; border: 1px solid var(--sand2); transform: translateY(16px); transition: transform 0.25s ease; max-height: 90vh; overflow-y: auto; }
     .modal-overlay.show .modal-content { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .modal-title { font-family: 'Lora', serif; font-size: 16px; color: var(--ink); font-weight: 400; }
-    .btn-close { background: transparent; border: none; color: var(--ink3); cursor: pointer; font-size: 14px; padding: 4px; transition: color var(--transition); }
+    .modal-title { font-family: 'Lora', serif; font-size: 16px; color: var(--ink); font-weight: 600; }
+    .btn-close { background: transparent; border: none; color: var(--ink3); cursor: pointer; font-size: 14px; padding: 4px; transition: color 0.3s ease; }
     .btn-close:hover { color: var(--clay); }
     .form-group { margin-bottom: 14px; }
     .form-label { display: block; font-size: 11px; font-weight: 500; color: var(--ink2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .form-control {
-        width: 100%; padding: 8px 12px; border: 1px solid var(--sand3);
-        border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif;
-        font-size: 13px; color: var(--ink); background: var(--sand);
-        outline: none; transition: border-color var(--transition);
-    }
+    .form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--sand3); border-radius: 4px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--ink); background: var(--sand); outline: none; transition: border-color 0.3s ease; }
     select.form-control { cursor: pointer; }
     .form-control:focus { border-color: var(--bark); background: #fff; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -93,19 +79,18 @@
                     <td style="font-size:12px;font-weight:500;color:var(--ink)">#B-{{ str_pad($booking->id, 4, '0', STR_PAD_LEFT) }}</td>
                     <td style="font-weight:500;color:var(--ink)">{{ $booking->guest->name ?? 'Tamu Tidak Diketahui' }}</td>
                     <td>{{ $booking->room->room_number ?? '-' }}</td>
-                    <td style="font-size:12px;color:var(--ink3)">{{ \Carbon\Carbon::parse($booking->check_in)->format('d M Y') }}</td>
-                    <td style="font-size:12px;color:var(--ink3)">{{ \Carbon\Carbon::parse($booking->check_out)->format('d M Y') }}</td>
+                    <td style="font-size:12px;color:var(--ink3)">{{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}</td>
+                    <td style="font-size:12px;color:var(--ink3)">{{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}</td>
                     <td>
                         @php $bs = $booking->status ?? 'pending'; @endphp
                         <span class="badge {{ in_array($bs, ['confirmed', 'checked_in']) ? 'badge-active' : ($bs === 'cancelled' ? 'badge-cancelled' : 'badge-pending') }}">
                             {{ ucfirst(str_replace('_', ' ', $bs)) }}
                         </span>
                     </td>
-                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($booking->total_price ?? 0, 0, ',', '.') }}</td>
+                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($booking->total_amount ?? 0, 0, ',', '.') }}</td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
-                            <button class="btn btn-outline btn-sm"
-                                onclick="openEditModal({{ json_encode($booking) }})">
+                            <button class="btn btn-outline btn-sm" onclick="openEditModal({{ json_encode($booking) }})">
                                 <i class="fas fa-pen"></i>
                             </button>
                             <form id="delete-form-{{ $booking->id }}" action="{{ route('admin.bookings.destroy', $booking->id) }}" method="POST" style="display:none">
@@ -120,8 +105,8 @@
                 @empty
                 <tr>
                     <td colspan="8">
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-times"></i>
+                        <div class="empty-state" style="text-align: center; padding: 30px;">
+                            <i class="fas fa-calendar-times" style="font-size: 32px; color: var(--sand3); margin-bottom: 10px;"></i>
                             <p>Belum ada data booking.</p>
                         </div>
                     </td>
@@ -130,12 +115,6 @@
             </tbody>
         </table>
     </div>
-
-    @if(isset($bookings) && method_exists($bookings, 'links'))
-    <div style="padding:12px 20px;border-top:1px solid var(--sand2)">
-        {{ $bookings->links() }}
-    </div>
-    @endif
 </div>
 
 {{-- Modal Tambah --}}
@@ -168,11 +147,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Check-in</label>
-                    <input type="date" name="check_in" class="form-control" required>
+                    <input type="date" name="check_in_date" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Check-out</label>
-                    <input type="date" name="check_out" class="form-control" required>
+                    <input type="date" name="check_out_date" class="form-control" required>
                 </div>
             </div>
             <div class="form-group">
@@ -222,11 +201,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Check-in</label>
-                    <input type="date" name="check_in" id="edit_check_in" class="form-control" required>
+                    <input type="date" name="check_in_date" id="edit_check_in_date" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Check-out</label>
-                    <input type="date" name="check_out" id="edit_check_out" class="form-control" required>
+                    <input type="date" name="check_out_date" id="edit_check_out_date" class="form-control" required>
                 </div>
             </div>
             <div class="form-group">
@@ -255,12 +234,12 @@
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
     function openEditModal(booking) {
-        document.getElementById('edit_guest_id').value        = booking.guest_id; // Diperbaiki: guest_id
+        document.getElementById('edit_guest_id').value        = booking.guest_id;
         document.getElementById('edit_room_id').value         = booking.room_id;
-        document.getElementById('edit_check_in').value        = booking.check_in ? booking.check_in.substring(0,10) : '';
-        document.getElementById('edit_check_out').value       = booking.check_out ? booking.check_out.substring(0,10) : '';
+        document.getElementById('edit_check_in_date').value   = booking.check_in_date ? booking.check_in_date.substring(0,10) : '';
+        document.getElementById('edit_check_out_date').value  = booking.check_out_date ? booking.check_out_date.substring(0,10) : '';
         document.getElementById('edit_status').value          = booking.status ?? 'pending';
-        // Hapus mapping payment_status karena sudah tidak digunakan
+        
         document.getElementById('formEditBooking').action     = '/admin/bookings/' + booking.id;
         openModal('modalEdit');
     }

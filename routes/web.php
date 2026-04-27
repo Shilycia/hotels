@@ -1,170 +1,109 @@
 <?php
 
-use App\Http\Controllers\Admin\AuthController;
-use App\Http\Controllers\Admin\BookingController;
+use Illuminate\Support\Facades\Route;
+
+// Import Admin Controllers
+use App\Http\Controllers\Admin\AuthController as AdminAuth;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\RoomTypeController;
+use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\Admin\PackageController;
+use App\Http\Controllers\Admin\DiscountController;
+use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PaymentController;
-use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Admin\RoomController;
-use App\Http\Controllers\Admin\RoomTypeController;
-use App\Http\Middleware\RedirectIfAdminLoggedIn;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Users\GuestPaymentController;
-use App\Http\Controllers\Users\PageController;
+use App\Http\Controllers\Admin\RoleController;
+
+// Import Guest Controllers
 use App\Http\Controllers\Users\GuestAuthController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Middleware\RedirectIfGuestLoggedIn;
+use App\Http\Controllers\Users\PageController;
+use App\Http\Controllers\Users\GuestPaymentController;
 
-// ==========================================
-// --- PUBLIC ROUTES ---
-// ==========================================
-Route::get('/', function () {
-    return redirect()->route('home');
-});
-
-// ==========================================
-// --- GUEST AUTHENTICATION ROUTES ---
-// ==========================================
-
-Route::middleware([RedirectIfAdminLoggedIn::class])->group(function () {
-    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
-});
-
-// Logout Admin (Harus di luar middleware)
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-// 🟢 Rute yang DIBLOKIR jika GUEST sudah login
-Route::middleware([RedirectIfGuestLoggedIn::class])->group(function () {
-    // Login
-    Route::get('/guest/login', [GuestAuthController::class, 'showLogin'])->name('guest.login');
-    Route::post('/guest/login', [GuestAuthController::class, 'login'])->name('guest.login.submit');
-    
-    // Register
-    Route::get('/guest/register', [GuestAuthController::class, 'showRegister'])->name('guest.register');
-    Route::post('/guest/register', [GuestAuthController::class, 'register'])->name('guest.register.submit');
-    
-    // Reset Password
-    Route::get('/guest/forgot-password', [GuestAuthController::class, 'showForgot'])->name('guest.forgot');
-    Route::post('/guest/forgot-password', [GuestAuthController::class, 'sendResetLink'])->name('guest.password.email');
-    Route::get('/guest/reset-password/{token}', [GuestAuthController::class, 'showResetForm'])->name('guest.password.reset');
-    Route::post('/guest/reset-password', [GuestAuthController::class, 'resetPassword'])->name('guest.password.update');
-});
-
-// Logout Guest (Harus di luar middleware atas agar bisa diakses saat sudah login)
-Route::post('/guest/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
-
-// Profil & Riwayat Transaksi Tamu
-Route::get('/guest/profile', [PageController::class, 'guestProfile'])->name('guest.profile');
+/*
+|--------------------------------------------------------------------------
+| 1. PORTAL TAMU (FRONTEND)
+|--------------------------------------------------------------------------
+*/
 
 
-// ==========================================
-// --- ADMIN AUTHENTICATION ROUTES ---
-// ==========================================
 
-// Logout Admin (Harus di luar middleware 'guest')
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-
-// ==========================================
-// --- PROTECTED ADMIN ROUTES ---
-// ==========================================
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-    // Manajemen User
-    Route::get('/users', [UserController::class, 'index'])->name('users');
-    Route::post('/users', [UserController::class, 'store'])->name('users.store');
-    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update'); 
-    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-
-    // Manajemen Kamar
-    Route::get('/rooms', [RoomController::class, 'index'])->name('rooms');
-    Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
-    Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
-    Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
-
-    // Manajemen Tipe Kamar
-    Route::get('/room-types', [RoomTypeController::class, 'index'])->name('room-types');
-    Route::post('/room-types', [RoomTypeController::class, 'store'])->name('room-types.store');
-    Route::put('/room-types/{roomType}', [RoomTypeController::class, 'update'])->name('room-types.update');
-    Route::delete('/room-types/{roomType}', [RoomTypeController::class, 'destroy'])->name('room-types.destroy');
-
-    // Manajemen Menu Restoran
-    Route::get('/menus', [MenuController::class, 'index'])->name('menus');
-    Route::post('/menus', [MenuController::class, 'store'])->name('menus.store');
-    Route::put('/menus/{menu}', [MenuController::class, 'update'])->name('menus.update');
-    Route::delete('/menus/{menu}', [MenuController::class, 'destroy'])->name('menus.destroy');
-
-    // Manajemen Order Restoran
-    Route::get('/orders', [OrderController::class, 'index'])->name('orders');
-    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
-    Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
-    Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
-
-    // Manajemen Booking
-    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings');
-    Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store'); 
-    Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
-    Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
-
-    // Laporan & Midtrans
-    Route::get('/reports/income', [ReportController::class, 'incomeReport'])->name('reports.income');
-    Route::get('/midtrans/status/{orderId}', [ReportController::class, 'checkMidtransStatus'])->name('midtrans.status');
-
-    // Payment Admin
-    Route::get('/payments', [PaymentController::class, 'index'])->name('payments');
-    Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
-    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])->name('payments.destroy');
-
-    // Manajemen Role
-    Route::get('/roles', [RoleController::class, 'index'])->name('roles');
-    Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
-    Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
-});
-
-
-// ==========================================
-// --- MIDTRANS & PAYMENT GUEST ROUTES ---
-// ==========================================
-Route::post('/admin/midtrans/callback', [PaymentController::class, 'midtransCallback']);
-Route::get('/pay/{payment}', [GuestPaymentController::class, 'show'])->name('guest.pay');
-Route::post('/pay/{payment}/status', [GuestPaymentController::class, 'updateFrontendStatus'])->name('guest.pay.status');
-
-
-// ==========================================
-// --- PUBLIC FRONTEND ROUTES (GUEST) ---
-// ==========================================
-
-// Halaman Informasi
-Route::get('/home', [PageController::class, 'home'])->name('home');
+// --- Akses Publik (Tanpa Login) ---
+Route::get('/', [PageController::class, 'index'])->name('home'); 
 Route::get('/about', [PageController::class, 'about'])->name('about');
-Route::get('/services', [PageController::class, 'services'])->name('services');
-Route::get('/team', [PageController::class, 'team'])->name('team');
-Route::get('/testimonial', [PageController::class, 'testimonial'])->name('testimonial');
-Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
+Route::get('/rooms/{roomType}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
+Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('restaurant.index'); 
 
-Route::post('/contact', [PageController::class, 'sendContact'])->name('contact.send');
-Route::post('/newsletter/subscribe', [PageController::class, 'subscribe'])->name('newsletter.subscribe');
+// --- Otentikasi Tamu (Hanya untuk yang BELUM login) ---
+Route::middleware('guest.guest')->group(function () {
+    Route::get('/login', [GuestAuthController::class, 'showLoginForm'])->name('guest.login');
+    Route::post('/login', [GuestAuthController::class, 'login'])->name('guest.login.submit');
+    Route::get('/register', [GuestAuthController::class, 'showRegisterForm'])->name('guest.register');
+    Route::post('/register', [GuestAuthController::class, 'register'])->name('guest.register.submit');
+    Route::post('/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
+    Route::get('/forgot-password', [GuestAuthController::class, 'forgotPassword'])->name('guest.forgot');
+});
 
-// Katalog Kamar
-Route::get('/rooms', [PageController::class, 'rooms'])->name('rooms');
-Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('room.detail');
+// --- Area Privat Tamu (Wajib Login Guest) ---
+Route::middleware('guest.auth')->group(function () { 
+    Route::post('/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
+    
+    // Profil & Riwayat [cite: 129, 130, 131, 132]
+    // GANTI MENJADI INI:
+    Route::get('/profile', [GuestAuthController::class, 'profile'])->name('guest.profile');
+    Route::put('/profile/update', [GuestAuthController::class, 'updateProfile'])->name('guest.profile.update');
+    // Proses Reservasi & Pesanan [cite: 121, 125, 126]
+    Route::get('/checkout/room', [PageController::class, 'checkoutRoom'])->name('checkout.room');
+    Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
+    Route::get('/package/{package}/customize', [PageController::class, 'customizePackage'])->name('package.customize');
+    
+    // Pembayaran Midtrans [cite: 127, 135]
+    Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
+    Route::get('/invoice/{payment}', [PageController::class, 'invoice'])->name('guest.invoice');
 
-// Rute Booking 
-Route::get('/booking', [PageController::class, 'booking'])->name('booking');
-Route::post('/booking', [PageController::class, 'storeBooking'])->name('booking.store');
+    Route::get('/profile/edit', [PageController::class, 'editProfile'])->name('guest.profile.edit');
+});
 
-// ==========================================
-// --- FRONTEND RESTAURANT ROUTES ---
-// ==========================================
-Route::get('/menus', [PageController::class, 'restaurant'])->name('menus');
-Route::get('/menus/{id}', [PageController::class, 'menuDetail'])->name('menu.detail');
-Route::post('/menus/order', [PageController::class, 'storeRestaurantOrder'])->name('menus.order'); 
-Route::get('/menus/confirmation/{id}', [PageController::class, 'orderConfirmation'])->name('orders.confirmation');
+/*
+|--------------------------------------------------------------------------
+| 2. PORTAL ADMIN (BACK-OFFICE)
+|--------------------------------------------------------------------------
+*/
+
+// --- Login Admin ---
+Route::get('/admin/login', [AdminAuth::class, 'showLoginForm'])->name('admin.login');
+Route::post('/admin/login', [AdminAuth::class, 'login']);
+
+// --- Area Internal Admin (Wajib Login Admin) ---
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () { 
+    
+    Route::post('/logout', [AdminAuth::class, 'logout'])->name('logout');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard'); 
+
+    Route::resource('room-types', RoomTypeController::class); 
+    Route::resource('rooms', RoomController::class); 
+    Route::resource('bookings', BookingController::class);
+
+    Route::resource('menus', MenuController::class);
+    Route::resource('packages', PackageController::class); 
+    Route::resource('orders', OrderController::class);
+
+    Route::resource('discounts', DiscountController::class); 
+    Route::resource('payments', PaymentController::class)->except(['create', 'store', 'edit', 'show']);
+    Route::get('/reports', [DashboardController::class, 'reports'])->name('reports.index'); 
+
+    Route::middleware('role:super_admin')->group(function () {
+        Route::resource('users', UserController::class);
+        Route::resource('roles', RoleController::class); // <--- TAMBAHKAN BARIS INI
+    });
+}); 
+
+/*
+|--------------------------------------------------------------------------
+| 3. WEBHOOK MIDTRANS
+|--------------------------------------------------------------------------
+*/
+// Jalur ini dikecualikan dari CSRF di bootstrap/app.php [cite: 140]
+Route::post('/webhook/midtrans/callback', [PaymentController::class, 'webhookCallback']);
