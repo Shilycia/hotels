@@ -71,4 +71,58 @@ class GuestPaymentController extends Controller
             return back()->with('error', 'Gagal memuat pembayaran: ' . $e->getMessage());
         }
     }
+
+    public function showPayment($id)
+    {
+        $payment = Payment::with('booking.guest')->findOrFail($id);
+
+        // Keamanan: Pastikan yang buka halaman ini adalah yang punya pesanan
+        if ($payment->booking->guest_id != session('guest_id')) {
+            abort(403, 'Akses Ditolak.');
+        }
+
+        // Konfigurasi Midtrans (Pastikan Anda sudah menginstall package midtrans/midtrans-php)
+        \Midtrans\Config::$serverKey = config('midtrans.server_key');
+        \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
+        \Midtrans\Config::$isSanitized = true;
+        \Midtrans\Config::$is3ds = true;
+
+        // Data transaksi untuk dikirim ke Midtrans
+        $params = [
+            'transaction_details' => [
+                'order_id' => 'PAY-' . $payment->id . '-' . time(), // Format Order ID unik
+                'gross_amount' => $payment->amount,
+            ],
+            'customer_details' => [
+                'first_name' => $payment->booking->guest->name ?? 'Tamu',
+                'email' => $payment->booking->guest->email ?? '',
+                'phone' => $payment->booking->guest->phone ?? '',
+            ],
+        ];
+
+        // Minta Snap Token ke Midtrans
+        $snapToken = \Midtrans\Snap::getSnapToken($params);
+
+        // Lempar ke view pembayaran yang Anda buat (misal namanya payment.blade.php)
+        return view('users.payment.index', compact('payment', 'snapToken'));
+    }
+
+    // Fungsi untuk mengupdate status setelah popup Midtrans ditutup/berhasil
+    public function updateStatus(Request $request, $id)
+    {
+        $payment = Payment::findOrFail($id);
+        
+        if ($request->status === 'paid') {
+            $payment->payment_status = 'paid';
+            $payment->save();
+
+            // Ubah status booking menjadi confirmed
+            if ($payment->booking) {
+                $payment->booking->status = 'confirmed';
+                $payment->booking->save();
+            }
+        }
+
+        return response()->json(['success' => true]);
+    }
 }

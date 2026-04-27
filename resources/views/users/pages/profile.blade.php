@@ -147,8 +147,16 @@
                                                     <span class="text-muted" style="font-size:12px">No. Kamar: {{ $booking->room->room_number ?? '-' }}</span>
                                                 </td>
                                                 <td>
-                                                    <span class="d-block" style="font-size:13px"><i class="fa fa-sign-in-alt text-primary me-1"></i> {{ \Carbon\Carbon::parse($booking->check_in)->format('d M Y') }}</span>
-                                                    <span class="d-block" style="font-size:13px"><i class="fa fa-sign-out-alt text-danger me-1"></i> {{ \Carbon\Carbon::parse($booking->check_out)->format('d M Y') }}</span>
+                                                    {{-- Pakai Carbon::parse untuk mengubah string jadi objek tanggal --}}
+                                                    <span class="d-block" style="font-size:13px">
+                                                        <i class="fa fa-sign-in-alt text-primary me-1"></i> 
+                                                        {{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}
+                                                    </span>
+                                                    
+                                                    <span class="d-block" style="font-size:13px">
+                                                        <i class="fa fa-sign-out-alt text-danger me-1"></i> 
+                                                        {{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}
+                                                    </span>
                                                 </td>
                                                 <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($booking->total_amount, 0, ',', '.') }}</td>
                                                 <td>

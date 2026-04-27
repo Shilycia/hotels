@@ -27,13 +27,11 @@ use App\Http\Controllers\Users\GuestPaymentController;
 |--------------------------------------------------------------------------
 */
 
-
-
 // --- Akses Publik (Tanpa Login) ---
 Route::get('/', [PageController::class, 'index'])->name('home'); 
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
-Route::get('/rooms/{roomType}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
+Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show');
 Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('restaurant.index'); 
 
 // --- Otentikasi Tamu (Hanya untuk yang BELUM login) ---
@@ -42,7 +40,6 @@ Route::middleware('guest.guest')->group(function () {
     Route::post('/login', [GuestAuthController::class, 'login'])->name('guest.login.submit');
     Route::get('/register', [GuestAuthController::class, 'showRegisterForm'])->name('guest.register');
     Route::post('/register', [GuestAuthController::class, 'register'])->name('guest.register.submit');
-    Route::post('/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
     Route::get('/forgot-password', [GuestAuthController::class, 'forgotPassword'])->name('guest.forgot');
 });
 
@@ -50,20 +47,24 @@ Route::middleware('guest.guest')->group(function () {
 Route::middleware('guest.auth')->group(function () { 
     Route::post('/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
     
-    // Profil & Riwayat [cite: 129, 130, 131, 132]
-    // GANTI MENJADI INI:
+    // Profil & Riwayat
     Route::get('/profile', [GuestAuthController::class, 'profile'])->name('guest.profile');
     Route::put('/profile/update', [GuestAuthController::class, 'updateProfile'])->name('guest.profile.update');
-    // Proses Reservasi & Pesanan [cite: 121, 125, 126]
+    Route::get('/profile/edit', [PageController::class, 'editProfile'])->name('guest.profile.edit');
+    
+    // Proses Reservasi & Pesanan
     Route::get('/checkout/room', [PageController::class, 'checkoutRoom'])->name('checkout.room');
+    Route::post('/checkout/apply-voucher', [PageController::class, 'applyVoucher'])->name('voucher.apply'); 
+    Route::post('/booking/store', [PageController::class, 'storeBooking'])->name('booking.store');
     Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
     Route::get('/package/{package}/customize', [PageController::class, 'customizePackage'])->name('package.customize');
     
-    // Pembayaran Midtrans [cite: 127, 135]
+
+    Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
+    Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');
+    // Pembayaran Midtrans
     Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
     Route::get('/invoice/{payment}', [PageController::class, 'invoice'])->name('guest.invoice');
-
-    Route::get('/profile/edit', [PageController::class, 'editProfile'])->name('guest.profile.edit');
 });
 
 /*
@@ -96,7 +97,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 
     Route::middleware('role:super_admin')->group(function () {
         Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class); // <--- TAMBAHKAN BARIS INI
+        Route::resource('roles', RoleController::class);
     });
 }); 
 
@@ -105,5 +106,4 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 | 3. WEBHOOK MIDTRANS
 |--------------------------------------------------------------------------
 */
-// Jalur ini dikecualikan dari CSRF di bootstrap/app.php [cite: 140]
 Route::post('/webhook/midtrans/callback', [PaymentController::class, 'webhookCallback']);

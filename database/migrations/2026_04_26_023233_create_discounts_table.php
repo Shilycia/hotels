@@ -13,10 +13,12 @@ return new class extends Migration
         Schema::create('discounts', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('code')->unique()->nullable(); 
             $table->enum('discount_type', ['percentage', 'fixed_amount']);
             $table->decimal('discount_value', 12, 2);
             $table->decimal('min_transaction_amount', 12, 2)->nullable();
             $table->enum('applicable_to', ['bookings', 'restaurant_orders', 'package_orders', 'all'])->nullable();
+            $table->boolean('is_stackable')->default(false); 
             $table->date('valid_from');
             $table->date('valid_until');
             $table->boolean('is_active')->default(true);
