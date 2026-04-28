@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void {
         Schema::create('discounts', function (Blueprint $table) {
             $table->id();
@@ -22,13 +19,15 @@ return new class extends Migration
             $table->date('valid_from');
             $table->date('valid_until');
             $table->boolean('is_active')->default(true);
+            
+            // [D-01] FIX: Tambahkan limitasi penggunaan
+            $table->unsignedInteger('max_uses')->nullable();
+            $table->unsignedInteger('used_count')->default(0);
+            
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('discounts');

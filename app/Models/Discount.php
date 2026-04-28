@@ -16,6 +16,8 @@ class Discount extends Model
         'is_stackable',          
         'valid_from', 
         'valid_until', 
-        'is_active'
+        'is_active',
+        'max_uses',    // [D-01] FIX
+        'used_count'   // [D-01] FIX
     ];
 }

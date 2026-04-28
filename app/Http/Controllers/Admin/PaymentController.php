@@ -41,9 +41,11 @@ class PaymentController extends Controller
                 $payment->restaurantOrder->update(['status' => 'preparing']); 
             } elseif ($payment->package_order_id) {
                 $payment->packageOrder->update(['status' => 'confirmed']);
-                // [N-01*] FIX: Konfirmasi Shadow Booking
+                
+                // [V-01] FIX: Tambahkan check_out_date untuk akurasi maksimal
                 $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
                             ->where('check_in_date', $payment->packageOrder->start_date)
+                            ->where('check_out_date', $payment->packageOrder->end_date)
                             ->where('status', 'pending')->first();
                 if ($shadow) $shadow->update(['status' => 'confirmed']);
             }
@@ -54,9 +56,11 @@ class PaymentController extends Controller
                 $payment->restaurantOrder->update(['status' => 'cancelled']); 
             } elseif ($payment->package_order_id) {
                 $payment->packageOrder->update(['status' => 'cancelled']);
-                // [N-01*] FIX: Batalkan Shadow Booking
+                
+                // [V-01] FIX: Tambahkan check_out_date
                 $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
                             ->where('check_in_date', $payment->packageOrder->start_date)
+                            ->where('check_out_date', $payment->packageOrder->end_date)
                             ->where('status', 'pending')->first();
                 if ($shadow) $shadow->update(['status' => 'cancelled']);
             }
@@ -97,9 +101,11 @@ class PaymentController extends Controller
                     $payment->restaurantOrder->update(['status' => 'preparing']);
                 } elseif ($payment->package_order_id) {
                     $payment->packageOrder->update(['status' => 'confirmed']);
-                    // [N-01*] FIX: Konfirmasi Shadow Booking
+                    
+                    // [V-01] FIX: Tambahkan check_out_date
                     $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
                                 ->where('check_in_date', $payment->packageOrder->start_date)
+                                ->where('check_out_date', $payment->packageOrder->end_date)
                                 ->where('status', 'pending')->first();
                     if ($shadow) $shadow->update(['status' => 'confirmed']);
                 }
@@ -113,9 +119,11 @@ class PaymentController extends Controller
                     $payment->restaurantOrder->update(['status' => 'cancelled']);
                 } elseif ($payment->package_order_id) {
                     $payment->packageOrder->update(['status' => 'cancelled']);
-                    // [N-01*] FIX: Batalkan Shadow Booking
+                    
+                    // [V-01] FIX: Tambahkan check_out_date
                     $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
                                 ->where('check_in_date', $payment->packageOrder->start_date)
+                                ->where('check_out_date', $payment->packageOrder->end_date)
                                 ->where('status', 'pending')->first();
                     if ($shadow) $shadow->update(['status' => 'cancelled']);
                 }

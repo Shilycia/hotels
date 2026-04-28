@@ -28,11 +28,8 @@ class PageController extends Controller
             ->get();
 
         $featuredRooms = RoomType::limit(3)->get();
-
         $featuredMenus = RestaurantMenu::where('is_available', true)->limit(4)->get();
-
         $packages = Package::with('roomType')->where('is_active', true)->limit(3)->get();
-
         $staffs = User::with('role')->limit(4)->get();
         
         return view('users.pages.home', compact(
@@ -60,7 +57,6 @@ class PageController extends Controller
         return view('users.pages.rooms', compact('roomTypes'));
     }
 
-    // Menampilkan halaman detail tipe kamar
     public function roomDetail($id)
     {
         $roomType = RoomType::findOrFail($id);
@@ -78,21 +74,17 @@ class PageController extends Controller
 
     public function applyVoucher(Request $request)
     {
-        // [C-02] FIX: Menghitung ulang subtotal murni dari server!
         $subtotal = 0;
         $applicableTo = 'all';
 
-        // Skenario 1: Checkout Kamar (Membaca tipe kamar dan durasi inap)
         if ($request->has('room_type_id') && $request->has('check_in') && $request->has('check_out')) {
-            $roomType = \App\Models\RoomType::find($request->room_type_id);
+            $roomType = RoomType::find($request->room_type_id);
             if ($roomType) {
-                $nights = \Carbon\Carbon::parse($request->check_in)->diffInDays(\Carbon\Carbon::parse($request->check_out));
+                $nights = Carbon::parse($request->check_in)->diffInDays(Carbon::parse($request->check_out));
                 $subtotal = $roomType->price * $nights;
                 $applicableTo = 'bookings';
             }
-        } 
-        // Skenario 2: Checkout Restoran (Membaca keranjang di Session)
-        elseif (session()->has('restaurant_cart')) {
+        } elseif (session()->has('restaurant_cart')) {
             $cart = session()->get('restaurant_cart', []);
             foreach($cart as $item) {
                 $subtotal += $item['price'] * $item['qty'];
@@ -100,8 +92,7 @@ class PageController extends Controller
             $applicableTo = 'restaurant_orders';
         }
 
-        // Kalkulasi diskon otomatis dari server
-        $autoDiscounts = \App\Models\Discount::whereNull('code')->where('is_active', true)
+        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)
             ->whereDate('valid_until', '>=', now())
             ->whereIn('applicable_to', ['all', $applicableTo])->get();
             
@@ -110,22 +101,24 @@ class PageController extends Controller
             $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
         }
 
-        // Cari Voucher Manual
-        $voucher = \App\Models\Discount::where('code', $request->code)->where('is_active', true)
+        $voucher = Discount::where('code', $request->code)->where('is_active', true)
             ->whereDate('valid_until', '>=', now())
             ->whereIn('applicable_to', ['all', $applicableTo])->first();
 
         if (!$voucher) {
             return response()->json(['success' => false, 'message' => 'Kode voucher tidak valid atau kedaluwarsa untuk pesanan ini.']);
         }
+        
+        if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+            return response()->json(['success' => false, 'message' => 'Voucher gagal diterapkan karena sudah kehabisan kuota.']);
+        }
+        
         if ($voucher->min_transaction_amount && $subtotal < $voucher->min_transaction_amount) {
             return response()->json(['success' => false, 'message' => 'Minimal transaksi belum terpenuhi.']);
         }
 
-        // Hitung nominal voucher dengan data murni server
         $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
 
-        // Logika Penggabungan (Stackable)
         if ($voucher->is_stackable) {
             $finalTotal = $subtotal - $autoDiscountAmount - $voucherAmount;
             $msg = 'Voucher berhasil digabungkan dengan promo otomatis!';
@@ -150,7 +143,6 @@ class PageController extends Controller
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
-
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
         }
@@ -161,7 +153,6 @@ class PageController extends Controller
 
     public function menuDetail($id)
     {
-        // 2. Tambahkan with('paketItems') di sini juga
         $menu = RestaurantMenu::with('paketItems')->findOrFail($id);
         
         $relatedMenus = RestaurantMenu::where('category', $menu->category)
@@ -180,10 +171,6 @@ class PageController extends Controller
         return view('users.pages.menu-detail', compact('menu', 'relatedMenus', 'activeBooking'));
     }
 
-    // ==========================================
-    // AREA PRIVAT TAMU (WAJIB LOGIN)
-    // ==========================================
-
     public function profile()
     {
         $guestId = session('guest_id');
@@ -201,9 +188,7 @@ class PageController extends Controller
 
     public function storeBooking(Request $request)
     {
-        if (!session()->has('guest_id')) {
-            return redirect()->route('guest.login')->with('error', 'Sesi habis. Silakan masuk kembali.');
-        }
+        if (!session()->has('guest_id')) return redirect()->route('guest.login')->with('error', 'Sesi habis. Silakan masuk kembali.');
 
         $request->validate([
             'room_type_id'    => 'required|exists:room_types,id',
@@ -215,27 +200,21 @@ class PageController extends Controller
         $checkInDate = Carbon::parse($request->check_in);
         $checkOutDate = Carbon::parse($request->check_out);
 
-        // [K-10] FIX: LOGIKA ANTI DOUBLE BOOKING
-        // Cari kamar fisik yang tipenya sesuai DAN TIDAK ADA jadwal bentrok
         $availableRoom = Room::where('room_type_id', $request->room_type_id)
             ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
-                // Abaikan booking yang sudah dibatalkan atau selesai
                 $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
-                      // Rumus jadwal bentrok: Check-in lama < Check-out baru AND Check-out lama > Check-in baru
                       ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
                       ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
             })
             ->first();
 
         if (!$availableRoom) {
-            return back()->with('error', 'Mohon maaf, kamar tipe ini sudah penuh untuk tanggal yang Anda pilih. Silakan cari tanggal atau tipe kamar lain.');
+            return back()->with('error', 'Mohon maaf, kamar tipe ini sudah penuh untuk tanggal yang Anda pilih.');
         }
 
-        // HITUNG ULANG DI SERVER
         $totalNights = $checkInDate->diffInDays($checkOutDate);
         $subtotal = $availableRoom->roomType->price * $totalNights;
 
-        // 1. Hitung Diskon Otomatis
         $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->get();
         $autoDiscountAmount = 0;
         foreach($autoDiscounts as $d) {
@@ -244,19 +223,22 @@ class PageController extends Controller
 
         $finalTotal = $subtotal - $autoDiscountAmount;
 
-        // 2. Diskon Voucher Manual
+        $usedVoucher = null;
         if ($request->filled('voucher_code')) {
             $voucher = Discount::where('code', $request->voucher_code)->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->first();
             if ($voucher) {
+                if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+                    return back()->with('error', 'Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
+                }
                 $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
                 $finalTotal = ($voucher->is_stackable) ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
+                $usedVoucher = $voucher;
             }
         }
 
-        // SIMPAN KE DATABASE
         $booking = new Booking();
         $booking->guest_id = session('guest_id');
-        $booking->room_id = $availableRoom->id; // Kamar yang didapat dijamin kosong!
+        $booking->room_id = $availableRoom->id;
         $booking->check_in_date = $request->check_in;
         $booking->check_out_date = $request->check_out;
         $booking->total_nights = $totalNights;
@@ -264,6 +246,8 @@ class PageController extends Controller
         $booking->status = 'pending'; 
         $booking->special_request = $request->special_request;
         $booking->save();
+
+        if ($usedVoucher) $usedVoucher->increment('used_count');
 
         $payment = new Payment();
         $payment->booking_id = $booking->id;
@@ -283,10 +267,8 @@ class PageController extends Controller
             'check_out'       => 'required|date|after:check_in',
         ]);
 
-        // Tambahkan with('roomType') agar relasinya terbaca
         $package = Package::with('roomType')->findOrFail($request->package_id);
 
-        // [C-01] FIX: CEK KETERSEDIAAN KAMAR FISIK UNTUK PAKET INI
         $checkInDate = Carbon::parse($request->check_in);
         $checkOutDate = Carbon::parse($request->check_out);
 
@@ -298,10 +280,7 @@ class PageController extends Controller
             })
             ->first();
 
-        // Tolak jika kamar untuk paket sudah terisi penuh
-        if (!$availableRoom) {
-            return back()->with('error', 'Mohon maaf, kuota kamar untuk paket ini sudah penuh pada tanggal tersebut. Silakan pilih tanggal atau paket lain.');
-        }
+        if (!$availableRoom) return back()->with('error', 'Kuota kamar untuk paket ini sudah penuh pada tanggal tersebut.');
 
         $totalAmount = $package->total_price;
 
@@ -312,7 +291,6 @@ class PageController extends Controller
             }
         }
 
-        // Simpan Pesanan Paket
         $order = new PackageOrder();
         $order->guest_id     = session('guest_id');
         $order->package_id   = $package->id;
@@ -322,14 +300,13 @@ class PageController extends Controller
         $order->status       = 'pending';
         $order->save();
 
-        // [C-01] FIX LANJUTAN: Buatkan "Booking Bayangan" agar kamar fisik TERKUNCI dan tidak bisa dipesan orang lain!
         $booking = new Booking();
         $booking->guest_id       = session('guest_id');
         $booking->room_id        = $availableRoom->id;
         $booking->check_in_date  = $request->check_in;
         $booking->check_out_date = $request->check_out;
         $booking->total_nights   = $checkInDate->diffInDays($checkOutDate);
-        $booking->total_amount   = 0; // Rp 0 karena harga sudah dibayar di dalam tagihan Paket
+        $booking->total_amount   = 0;
         $booking->status         = 'pending';
         $booking->special_request= 'Tamu Pemesan Paket: ' . $package->name;
         $booking->save();
@@ -346,7 +323,6 @@ class PageController extends Controller
             }
         }
 
-        // Buatkan Tagihan
         $payment = new Payment();
         $payment->package_order_id = $order->id; 
         $payment->amount           = $totalAmount;
@@ -354,8 +330,7 @@ class PageController extends Controller
         $payment->payment_method   = 'midtrans';
         $payment->save();
 
-        return redirect()->route('guest.payment.show', $payment->id)
-                         ->with('success', 'Pesanan Paket berhasil dibuat! Silakan selesaikan pembayaran.');
+        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Paket berhasil dibuat! Silakan selesaikan pembayaran.');
     }
 
     public function contact()
@@ -376,22 +351,17 @@ class PageController extends Controller
         $checkIn = Carbon::parse($request->check_in);
         $checkOut = Carbon::parse($request->check_out);
         $nights = $checkIn->diffInDays($checkOut);
-        
         $subtotal = $roomType->price * $nights;
 
-        // 1. Cek Diskon Otomatis (Yang tidak punya kode voucher)
-        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)
-            ->whereDate('valid_until', '>=', now())
-            ->whereIn('applicable_to', ['all', 'bookings'])->get();
-
+        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->get();
         $autoDiscountAmount = 0;
         foreach($autoDiscounts as $d) {
             $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
         }
 
-        $totalPrice = $subtotal - $autoDiscountAmount;
+        $totalPrice = max(0, $subtotal - $autoDiscountAmount);
 
-        return view('users.pages.checkout', compact(
+        return view('users.pages.checkout_room', compact(
             'roomType', 'guest', 'checkIn', 'checkOut', 'nights', 'subtotal', 'autoDiscountAmount', 'totalPrice', 'request'
         ));
     }
@@ -399,23 +369,15 @@ class PageController extends Controller
     public function checkoutRestaurant(Request $request)
     {
         $cart = session()->get('restaurant_cart', []);
-        
-        if(empty($cart)) {
-            return redirect()->route('menus')->with('error', 'Keranjang Anda masih kosong.');
-        }
+        if(empty($cart)) return redirect()->route('menus')->with('error', 'Keranjang Anda masih kosong.');
 
-        // Cek kamar aktif (untuk mengaktifkan/menonaktifkan opsi "Pesan ke Kamar")
         $activeBooking = Booking::with('room')->where('guest_id', session('guest_id'))
-            ->whereIn('status', ['confirmed', 'checked_in'])
-            ->first();
+            ->whereIn('status', ['confirmed', 'checked_in'])->first();
 
         $subtotal = 0;
         foreach($cart as $item) $subtotal += $item['price'] * $item['qty'];
 
-        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)
-            ->whereDate('valid_until', '>=', now())
-            ->whereIn('applicable_to', ['all', 'restaurant_orders'])->get();
-            
+        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'restaurant_orders'])->get();
         $autoDiscountAmount = 0;
         foreach($autoDiscounts as $d) {
             $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
@@ -441,9 +403,7 @@ class PageController extends Controller
         if ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestId) $isOwner = true;
         if ($payment->packageOrder && $payment->packageOrder->guest_id == $guestId) $isOwner = true;
 
-        if (!$isOwner) {
-            abort(403, 'Akses ditolak.');
-        }
+        if (!$isOwner) abort(403, 'Akses ditolak.');
 
         return view('users.pages.invoice', compact('payment'));
     }
@@ -452,7 +412,6 @@ class PageController extends Controller
     {
         $guestId = session('guest_id');
         $guest = Guest::findOrFail($guestId);
-
         return view('users.pages.edit_profile', compact('guest'));
     }
 
@@ -467,14 +426,12 @@ class PageController extends Controller
         $menu = RestaurantMenu::findOrFail($request->menu_id);
         $cart = session()->get('restaurant_cart', []);
 
-        // Jika menu sudah ada di keranjang, tambahkan qty-nya
         if(isset($cart[$menu->id])) {
             $cart[$menu->id]['qty'] += $request->qty;
             if($request->notes) {
                 $cart[$menu->id]['notes'] = $cart[$menu->id]['notes'] . ', ' . $request->notes;
             }
         } else {
-            // Jika belum ada, buat item baru
             $cart[$menu->id] = [
                 'id' => $menu->id,
                 'name' => $menu->name,
@@ -489,7 +446,6 @@ class PageController extends Controller
         return back()->with('success', $menu->name . ' berhasil ditambahkan ke keranjang!');
     }
 
-    // 2. HAPUS DARI KERANJANG
     public function removeFromRestaurantCart(Request $request)
     {
         if($request->id) {
@@ -502,16 +458,11 @@ class PageController extends Controller
         return back()->with('success', 'Item dihapus dari keranjang.');
     }
 
-    // 3. TAMPILKAN HALAMAN CHECKOUT KERANJANG
-    
-
-    // 4. SIMPAN PESANAN RESTORAN KE DATABASE
     public function storeRestaurantOrder(Request $request)
     {
         $cart = session()->get('restaurant_cart', []);
         if(empty($cart)) return redirect()->route('menus');
 
-        // Validasi Opsi Pengiriman
         $request->validate([
             'order_type' => 'required|in:room_service,dine_in,takeaway',
             'table_number' => 'required_if:order_type,dine_in',
@@ -519,15 +470,12 @@ class PageController extends Controller
             'table_number.required_if' => 'Nomor meja wajib diisi jika Anda makan di tempat.'
         ]);
 
-        $activeBooking = Booking::where('guest_id', session('guest_id'))
-            ->whereIn('status', ['confirmed', 'checked_in'])->first();
+        $activeBooking = Booking::where('guest_id', session('guest_id'))->whereIn('status', ['confirmed', 'checked_in'])->first();
 
-        // Validasi ketat keamanan: Jangan izinkan room_service kalau tidak punya kamar
         if($request->order_type == 'room_service' && !$activeBooking) {
             return back()->with('error', 'Akses ditolak: Anda tidak memiliki kamar aktif untuk layanan Room Service.');
         }
 
-        // [D-02] FIX: Hitung ulang harga ASLI dari Database, jangan dari Session!
         $subtotal = 0;
         $verifiedCart = [];
         
@@ -535,14 +483,12 @@ class PageController extends Controller
             $menu = RestaurantMenu::find($item['id']);
             if ($menu) {
                 $subtotal += $menu->price * $item['qty'];
-                $item['price'] = $menu->price; // Timpa harga keranjang dengan harga asli DB
+                $item['price'] = $menu->price; 
                 $verifiedCart[] = $item;
             }
         }
-        
-        $cart = $verifiedCart; // Gunakan keranjang yang sudah diverifikasi
+        $cart = $verifiedCart;
 
-        // Diskon otomatis
         $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'restaurant_orders'])->get();
         $autoDiscountAmount = 0;
         foreach($autoDiscounts as $d) {
@@ -550,16 +496,19 @@ class PageController extends Controller
         }
         $finalTotal = $subtotal - $autoDiscountAmount;
 
-        // Diskon Voucher
+        $usedVoucher = null;
         if ($request->filled('voucher_code')) {
             $voucher = Discount::where('code', $request->voucher_code)->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'restaurant_orders'])->first();
             if ($voucher) {
+                if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+                    return back()->with('error', 'Pesanan gagal: Voucher promo sudah kehabisan kuota.');
+                }
                 $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
                 $finalTotal = ($voucher->is_stackable) ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
+                $usedVoucher = $voucher;
             }
         }
 
-        // SIMPAN KE DATABASE
         $order = new RestaurantOrder();
         $order->guest_id = session('guest_id');
         $order->booking_id = ($request->order_type == 'room_service') ? $activeBooking->id : null;
@@ -580,6 +529,8 @@ class PageController extends Controller
             ]);
         }
 
+        if ($usedVoucher) $usedVoucher->increment('used_count');
+
         $payment = new Payment();
         $payment->restaurant_order_id = $order->id; 
         $payment->amount = $order->total_amount;
@@ -591,6 +542,4 @@ class PageController extends Controller
 
         return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Makanan berhasil dibuat!');
     }
-
-    
 }

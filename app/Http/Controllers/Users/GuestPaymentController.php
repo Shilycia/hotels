@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Discount;
 use App\Models\Guest;
-use App\Models\Booking; // Tambahkan ini
+use App\Models\Booking;
+use App\Models\RestaurantOrder;
+use App\Models\PackageOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -23,50 +25,28 @@ class GuestPaymentController extends Controller
     public function processPayment(Request $request)
     {
         $guestId = session('guest_id');
-        $totalAmount = 0;
-        $transactionType = ''; // [C-03] FIX: Ditentukan oleh server, bukan dari client
+        $finalAmount = 0;
 
+        // Ambil total tagihan murni dari database (Harga ini SUDAH dipotong diskon oleh PageController)
         if ($request->booking_id) {
-            $totalAmount = \App\Models\Booking::where('id', $request->booking_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
-            $transactionType = 'bookings';
+            $finalAmount = Booking::where('id', $request->booking_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
         } elseif ($request->restaurant_order_id) {
-            $totalAmount = \App\Models\RestaurantOrder::where('id', $request->restaurant_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
-            $transactionType = 'restaurant_orders';
+            $finalAmount = RestaurantOrder::where('id', $request->restaurant_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
         } elseif ($request->package_order_id) {
-            $totalAmount = \App\Models\PackageOrder::where('id', $request->package_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
-            $transactionType = 'package_orders';
+            $finalAmount = PackageOrder::where('id', $request->package_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
         } else {
             abort(400, 'Pesanan tidak ditemukan atau bukan milik Anda.');
         }
 
-        $discountApplied = 0;
-        $activeDiscount = Discount::where('is_active', true)
-            ->whereDate('valid_from', '<=', now())
-            ->whereDate('valid_until', '>=', now())
-            ->where(function($query) use ($transactionType) {
-                $query->where('applicable_to', 'all')
-                      ->orWhere('applicable_to', $transactionType);
-            })
-            ->where('min_transaction_amount', '<=', $totalAmount)
-            ->first();
-
-        if ($activeDiscount) {
-            if ($activeDiscount->discount_type == 'percentage') {
-                $discountApplied = $totalAmount * ($activeDiscount->discount_value / 100);
-            } else {
-                $discountApplied = $activeDiscount->discount_value;
-            }
-        }
-
-        $finalAmount = max(0, $totalAmount - $discountApplied);
         $orderId = 'NEO-' . time() . '-' . Str::random(5);
         
+        // Langsung simpan payment tanpa perlu menghitung diskon lagi (Anti Double-Discounting)
         $payment = Payment::create([
             'booking_id' => $request->booking_id,
             'restaurant_order_id' => $request->restaurant_order_id,
             'package_order_id' => $request->package_order_id,
             'amount' => $finalAmount,
-            'discount_applied' => $discountApplied,
+            'discount_applied' => 0, 
             'payment_status' => 'pending',
             'midtrans_order_id' => $orderId,
         ]);
@@ -88,7 +68,6 @@ class GuestPaymentController extends Controller
         try {
             $snapToken = \Midtrans\Snap::getSnapToken($params);
             return view('users.pages.invoice', compact('payment', 'snapToken'));
-            
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal memuat pembayaran: ' . $e->getMessage());
         }
@@ -113,17 +92,11 @@ class GuestPaymentController extends Controller
             if ($payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
         }
 
-        if (!$isOwner) abort(403, 'Akses Ditangguhkan.');
+        if (!$isOwner) abort(403, 'Akses Ditangguhkan: Transaksi ini bukan milik Anda.');
 
-        \Midtrans\Config::$serverKey = config('midtrans.server_key');
-        \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
-        \Midtrans\Config::$isSanitized = true;
-        \Midtrans\Config::$is3ds = true;
-
-        // [X-01 & X-02] FIX: Gunakan Order ID yang ada di DB. Jangan buat baru!
+        // Gunakan Order ID yang ada di DB agar tidak terbuat ulang
         $orderId = $payment->midtrans_order_id;
         
-        // Fallback jika data lama belum punya midtrans_order_id
         if (!$orderId) {
             $orderPrefix = 'PAY-';
             if ($payment->booking) $orderPrefix = 'ROOM-';
@@ -166,7 +139,7 @@ class GuestPaymentController extends Controller
         elseif ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestIdInSession) $isOwner = true;
         elseif ($payment->packageOrder && $payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
 
-        if (!$isOwner) abort(403);
+        if (!$isOwner) abort(403, 'Akses Ditangguhkan.');
 
         $status = strtolower($request->status);
 
@@ -177,7 +150,6 @@ class GuestPaymentController extends Controller
             
             if ($payment->packageOrder) {
                 $payment->packageOrder->update(['status' => 'confirmed']);
-                // [N-01*] FIX: Konfirmasi juga Shadow Booking-nya
                 $shadow = Booking::where('guest_id', $payment->packageOrder->guest_id)
                                  ->where('check_in_date', $payment->packageOrder->start_date)
                                  ->where('check_out_date', $payment->packageOrder->end_date)
@@ -193,7 +165,6 @@ class GuestPaymentController extends Controller
             
             if ($payment->packageOrder) {
                 $payment->packageOrder->update(['status' => 'cancelled']);
-                // [N-01*] FIX: Batalkan juga Shadow Booking-nya agar kamar rilis
                 $shadow = Booking::where('guest_id', $payment->packageOrder->guest_id)
                                  ->where('check_in_date', $payment->packageOrder->start_date)
                                  ->where('check_out_date', $payment->packageOrder->end_date)
