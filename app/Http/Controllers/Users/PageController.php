@@ -78,27 +78,59 @@ class PageController extends Controller
 
     public function applyVoucher(Request $request)
     {
-        $voucher = Discount::where('code', $request->code)->where('is_active', true)
+        // [C-02] FIX: Menghitung ulang subtotal murni dari server!
+        $subtotal = 0;
+        $applicableTo = 'all';
+
+        // Skenario 1: Checkout Kamar (Membaca tipe kamar dan durasi inap)
+        if ($request->has('room_type_id') && $request->has('check_in') && $request->has('check_out')) {
+            $roomType = \App\Models\RoomType::find($request->room_type_id);
+            if ($roomType) {
+                $nights = \Carbon\Carbon::parse($request->check_in)->diffInDays(\Carbon\Carbon::parse($request->check_out));
+                $subtotal = $roomType->price * $nights;
+                $applicableTo = 'bookings';
+            }
+        } 
+        // Skenario 2: Checkout Restoran (Membaca keranjang di Session)
+        elseif (session()->has('restaurant_cart')) {
+            $cart = session()->get('restaurant_cart', []);
+            foreach($cart as $item) {
+                $subtotal += $item['price'] * $item['qty'];
+            }
+            $applicableTo = 'restaurant_orders';
+        }
+
+        // Kalkulasi diskon otomatis dari server
+        $autoDiscounts = \App\Models\Discount::whereNull('code')->where('is_active', true)
             ->whereDate('valid_until', '>=', now())
-            ->whereIn('applicable_to', ['all', 'bookings'])->first();
+            ->whereIn('applicable_to', ['all', $applicableTo])->get();
+            
+        $autoDiscountAmount = 0;
+        foreach($autoDiscounts as $d) {
+            $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
+        }
+
+        // Cari Voucher Manual
+        $voucher = \App\Models\Discount::where('code', $request->code)->where('is_active', true)
+            ->whereDate('valid_until', '>=', now())
+            ->whereIn('applicable_to', ['all', $applicableTo])->first();
 
         if (!$voucher) {
-            return response()->json(['success' => false, 'message' => 'Kode voucher tidak valid atau kedaluwarsa.']);
+            return response()->json(['success' => false, 'message' => 'Kode voucher tidak valid atau kedaluwarsa untuk pesanan ini.']);
         }
-        if ($voucher->min_transaction_amount && $request->subtotal < $voucher->min_transaction_amount) {
+        if ($voucher->min_transaction_amount && $subtotal < $voucher->min_transaction_amount) {
             return response()->json(['success' => false, 'message' => 'Minimal transaksi belum terpenuhi.']);
         }
 
-        // Hitung nominal voucher
-        $voucherAmount = ($voucher->discount_type == 'percentage') ? ($request->subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
+        // Hitung nominal voucher dengan data murni server
+        $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
 
         // Logika Penggabungan (Stackable)
         if ($voucher->is_stackable) {
-            $finalTotal = $request->subtotal - $request->auto_discount_amount - $voucherAmount;
+            $finalTotal = $subtotal - $autoDiscountAmount - $voucherAmount;
             $msg = 'Voucher berhasil digabungkan dengan promo otomatis!';
         } else {
-            // Jika tidak bisa digabung, voucher ini MENGGANTIKAN promo otomatis
-            $finalTotal = $request->subtotal - $voucherAmount;
+            $finalTotal = $subtotal - $voucherAmount;
             $msg = 'Voucher diterapkan! (Promo otomatis dibatalkan karena tidak dapat digabung).';
         }
 
@@ -107,7 +139,7 @@ class PageController extends Controller
             'message' => $msg,
             'voucher_amount' => $voucherAmount,
             'is_stackable' => $voucher->is_stackable,
-            'final_total' => max(0, $finalTotal) // Harga tidak boleh minus
+            'final_total' => max(0, $finalTotal)
         ]);
     }
 
@@ -251,56 +283,78 @@ class PageController extends Controller
             'check_out'       => 'required|date|after:check_in',
         ]);
 
-        $package = Package::findOrFail($request->package_id);
+        // Tambahkan with('roomType') agar relasinya terbaca
+        $package = Package::with('roomType')->findOrFail($request->package_id);
 
-        // 1. Hitung total harga dasar paket
+        // [C-01] FIX: CEK KETERSEDIAAN KAMAR FISIK UNTUK PAKET INI
+        $checkInDate = Carbon::parse($request->check_in);
+        $checkOutDate = Carbon::parse($request->check_out);
+
+        $availableRoom = Room::where('room_type_id', $package->room_type_id)
+            ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
+                $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
+                      ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
+                      ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
+            })
+            ->first();
+
+        // Tolak jika kamar untuk paket sudah terisi penuh
+        if (!$availableRoom) {
+            return back()->with('error', 'Mohon maaf, kuota kamar untuk paket ini sudah penuh pada tanggal tersebut. Silakan pilih tanggal atau paket lain.');
+        }
+
         $totalAmount = $package->total_price;
 
-        // 2. Tambahkan harga menu ekstra jika tamu mencentangnya
         if ($request->has('extra_menus')) {
             $extraMenus = RestaurantMenu::whereIn('id', $request->extra_menus)->get();
             foreach ($extraMenus as $menu) {
-                // Asumsi: tamu memesan 1 porsi untuk setiap menu ekstra yang dicentang
                 $totalAmount += $menu->price; 
             }
         }
 
-        // 3. Simpan Pesanan Paket ke Database
+        // Simpan Pesanan Paket
         $order = new PackageOrder();
         $order->guest_id     = session('guest_id');
         $order->package_id   = $package->id;
-        
-        // PENYESUAIAN NAMA KOLOM:
         $order->start_date   = $request->check_in; 
         $order->end_date     = $request->check_out;
-        // ($order->special_request kita hapus karena tidak ada di database)
-        
         $order->total_amount = $totalAmount;
         $order->status       = 'pending';
         $order->save();
 
-        // 4. (Opsional) Jika Anda ingin menyimpan ekstra makanan ke relasi PackageOrderMeal
+        // [C-01] FIX LANJUTAN: Buatkan "Booking Bayangan" agar kamar fisik TERKUNCI dan tidak bisa dipesan orang lain!
+        $booking = new Booking();
+        $booking->guest_id       = session('guest_id');
+        $booking->room_id        = $availableRoom->id;
+        $booking->check_in_date  = $request->check_in;
+        $booking->check_out_date = $request->check_out;
+        $booking->total_nights   = $checkInDate->diffInDays($checkOutDate);
+        $booking->total_amount   = 0; // Rp 0 karena harga sudah dibayar di dalam tagihan Paket
+        $booking->status         = 'pending';
+        $booking->special_request= 'Tamu Pemesan Paket: ' . $package->name;
+        $booking->save();
+
         if ($request->has('extra_menus')) {
             foreach ($request->extra_menus as $menuId) {
                 PackageOrderMeal::create([
                     'package_order_id'   => $order->id,
                     'restaurant_menu_id' => $menuId,
-                    'date'               => $request->check_in, // Makanan dikirim pada hari Check-in
-                    'meal_time'          => 'dinner',           // Waktu makan default (misal: dinner/lunch/breakfast)
+                    'date'               => $request->check_in,
+                    'meal_time'          => 'dinner', 
                     'quantity'           => 1,
                 ]);
             }
         }
 
-        // 5. Buatkan Tagihan Pembayaran
+        // Buatkan Tagihan
         $payment = new Payment();
         $payment->package_order_id = $order->id; 
+        $payment->booking_id       = $booking->id; // Tautkan booking agar otomatis 'confirmed' saat dibayar
         $payment->amount           = $totalAmount;
         $payment->payment_status   = 'pending';
         $payment->payment_method   = 'midtrans';
         $payment->save();
 
-        // 6. Arahkan ke halaman pembayaran
         return redirect()->route('guest.payment.show', $payment->id)
                          ->with('success', 'Pesanan Paket berhasil dibuat! Silakan selesaikan pembayaran.');
     }

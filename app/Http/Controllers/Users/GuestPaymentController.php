@@ -13,7 +13,6 @@ class GuestPaymentController extends Controller
 {
     public function __construct()
     {
-        // [K-08] FIX: Gunakan config() karena env() akan null jika di-cache saat produksi
         \Midtrans\Config::$serverKey = config('midtrans.server_key');
         \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
         \Midtrans\Config::$isSanitized = true;
@@ -22,17 +21,24 @@ class GuestPaymentController extends Controller
 
     public function processPayment(Request $request)
     {
-        // [K-05] FIX & AMAN: JANGAN PERNAH percaya harga dari input client.
-        // Sistem sekarang memaksa untuk mengecek nominal asli pesanan di database.
+        $guestId = session('guest_id');
         $totalAmount = 0;
+
+        // [B-01] FIX: Verifikasi ketat bahwa pesanan ini benar-benar milik tamu yang sedang login!
         if ($request->booking_id) {
-            $totalAmount = \App\Models\Booking::findOrFail($request->booking_id)->total_amount;
+            $totalAmount = \App\Models\Booking::where('id', $request->booking_id)
+                                              ->where('guest_id', $guestId)
+                                              ->firstOrFail()->total_amount;
         } elseif ($request->restaurant_order_id) {
-            $totalAmount = \App\Models\RestaurantOrder::findOrFail($request->restaurant_order_id)->total_amount;
+            $totalAmount = \App\Models\RestaurantOrder::where('id', $request->restaurant_order_id)
+                                                      ->where('guest_id', $guestId)
+                                                      ->firstOrFail()->total_amount;
         } elseif ($request->package_order_id) {
-            $totalAmount = \App\Models\PackageOrder::findOrFail($request->package_order_id)->total_amount;
+            $totalAmount = \App\Models\PackageOrder::where('id', $request->package_order_id)
+                                                   ->where('guest_id', $guestId)
+                                                   ->firstOrFail()->total_amount;
         } else {
-            abort(400, 'Pesanan tidak ditemukan.');
+            abort(400, 'Pesanan tidak ditemukan atau bukan milik Anda.');
         }
 
         $transactionType = $request->transaction_type;
@@ -68,8 +74,7 @@ class GuestPaymentController extends Controller
             'midtrans_order_id' => $orderId,
         ]);
 
-        // [S-01] FIX: Gunakan Guest Model dengan mencari guest_id di session.
-        $guest = Guest::find(session('guest_id'));
+        $guest = Guest::find($guestId);
 
         $params = [
             'transaction_details' => [
@@ -146,28 +151,37 @@ class GuestPaymentController extends Controller
         return view('users.payment.index', compact('payment', 'snapToken'));
     }
 
-    // [K-06] FIX: Menangani gagal bayar dengan mengubah pesanan menjadi 'cancelled'
     public function updateStatus(Request $request, $id)
     {
-        $payment = Payment::findOrFail($id);
+        $payment = Payment::with(['booking', 'restaurantOrder', 'packageOrder'])->findOrFail($id);
         
+        // [B-02] FIX: Verifikasi kepemilikan sebelum mengizinkan update status
+        $guestIdInSession = session('guest_id');
+        $isOwner = false;
+
+        if ($payment->booking && $payment->booking->guest_id == $guestIdInSession) $isOwner = true;
+        elseif ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestIdInSession) $isOwner = true;
+        elseif ($payment->packageOrder && $payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
+
+        if (!$isOwner) {
+            abort(403, 'Akses Ditangguhkan: Anda tidak berhak mengubah status transaksi ini.');
+        }
+
         $status = strtolower($request->status);
 
-        // Jika Lunas
         if (in_array($status, ['paid', 'settlement', 'capture'])) {
             $payment->payment_status = 'paid';
             $payment->save();
 
             if ($payment->booking) $payment->booking->update(['status' => 'confirmed']);
-            if ($payment->restaurantOrder) $payment->restaurantOrder->update(['status' => 'placed']);
+            // [B-03] FIX: Ganti 'placed' menjadi 'preparing' agar sesuai dengan enum database
+            if ($payment->restaurantOrder) $payment->restaurantOrder->update(['status' => 'preparing']);
             if ($payment->packageOrder) $payment->packageOrder->update(['status' => 'confirmed']);
         } 
-        // Jika Batal/Ditolak/Gagal
         elseif (in_array($status, ['failed', 'deny', 'cancel', 'expire'])) {
             $payment->payment_status = 'failed';
             $payment->save();
 
-            // Batalkan pesanan agar kamar/meja tidak tertahan
             if ($payment->booking) $payment->booking->update(['status' => 'cancelled']);
             if ($payment->restaurantOrder) $payment->restaurantOrder->update(['status' => 'cancelled']);
             if ($payment->packageOrder) $payment->packageOrder->update(['status' => 'cancelled']);

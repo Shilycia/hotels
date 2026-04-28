@@ -33,10 +33,8 @@ Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
 Route::get('/contact', [PageController::class, 'contact'])->name('contact');
 
-// KEMBALIKAN NAMA RUTE KAMAR:
 Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
 
-// TAMBAHKAN 2 RUTE MENU INI:
 Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('menus');
 Route::get('/restaurant/{id}', [PageController::class, 'menuDetail'])->name('menu.detail');
 
@@ -60,21 +58,22 @@ Route::middleware('guest.auth')->group(function () {
 
     // --- Area Restoran & Keranjang ---
     Route::post('/restaurant/cart/add', [PageController::class, 'addToRestaurantCart'])->name('restaurant.cart.add');
+    // [K-02] FIX: Mempertahankan satu saja rute checkout restaurant
     Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
     Route::post('/checkout/restaurant/remove', [PageController::class, 'removeFromRestaurantCart'])->name('restaurant.cart.remove');
     Route::post('/restaurant/order/store', [PageController::class, 'storeRestaurantOrder'])->name('restaurant.order.store');
     
-    // Proses Reservasi & Pesanan
+    // Proses Reservasi Kamar & Paket
     Route::get('/checkout/room', [PageController::class, 'checkoutRoom'])->name('checkout.room');
     Route::post('/checkout/apply-voucher', [PageController::class, 'applyVoucher'])->name('voucher.apply'); 
     Route::post('/booking/store', [PageController::class, 'storeBooking'])->name('booking.store');
-    Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
+    
     Route::get('/package/{package}/customize', [PageController::class, 'customizePackage'])->name('package.customize');
     Route::post('/package/store', [PageController::class, 'storePackageOrder'])->name('package.store');    
 
+    // Pembayaran
     Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
     Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');
-    // Pembayaran Midtrans
     Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
     Route::get('/invoice/{payment}', [PageController::class, 'invoice'])->name('guest.invoice');
 });
@@ -85,13 +84,10 @@ Route::middleware('guest.auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-// --- Login Admin ---
 Route::get('/admin/login', [AdminAuth::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuth::class, 'login']);
 
-// --- Area Internal Admin (Wajib Login Admin) ---
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () { 
-    
     Route::post('/logout', [AdminAuth::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard'); 
 
