@@ -117,6 +117,10 @@ class BookingController extends Controller
 
     public function destroy(Booking $booking)
     {
+        if ($booking->status == 'checked_in') {
+            $booking->room->update(['status' => 'available']);
+        }
+        
         $booking->delete();
         return redirect()->route('admin.bookings.index')->with('success', 'Reservasi berhasil dihapus!');
     }

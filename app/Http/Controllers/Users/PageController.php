@@ -527,8 +527,20 @@ class PageController extends Controller
             return back()->with('error', 'Akses ditolak: Anda tidak memiliki kamar aktif untuk layanan Room Service.');
         }
 
+        // [D-02] FIX: Hitung ulang harga ASLI dari Database, jangan dari Session!
         $subtotal = 0;
-        foreach($cart as $item) $subtotal += $item['price'] * $item['qty'];
+        $verifiedCart = [];
+        
+        foreach($cart as $item) {
+            $menu = RestaurantMenu::find($item['id']);
+            if ($menu) {
+                $subtotal += $menu->price * $item['qty'];
+                $item['price'] = $menu->price; // Timpa harga keranjang dengan harga asli DB
+                $verifiedCart[] = $item;
+            }
+        }
+        
+        $cart = $verifiedCart; // Gunakan keranjang yang sudah diverifikasi
 
         // Diskon otomatis
         $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'restaurant_orders'])->get();

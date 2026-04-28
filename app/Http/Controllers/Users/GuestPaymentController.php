@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Discount;
 use App\Models\Guest;
+use App\Models\Booking; // Tambahkan ini
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -23,25 +24,21 @@ class GuestPaymentController extends Controller
     {
         $guestId = session('guest_id');
         $totalAmount = 0;
+        $transactionType = ''; // [C-03] FIX: Ditentukan oleh server, bukan dari client
 
-        // [B-01] FIX: Verifikasi ketat bahwa pesanan ini benar-benar milik tamu yang sedang login!
         if ($request->booking_id) {
-            $totalAmount = \App\Models\Booking::where('id', $request->booking_id)
-                                              ->where('guest_id', $guestId)
-                                              ->firstOrFail()->total_amount;
+            $totalAmount = \App\Models\Booking::where('id', $request->booking_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
+            $transactionType = 'bookings';
         } elseif ($request->restaurant_order_id) {
-            $totalAmount = \App\Models\RestaurantOrder::where('id', $request->restaurant_order_id)
-                                                      ->where('guest_id', $guestId)
-                                                      ->firstOrFail()->total_amount;
+            $totalAmount = \App\Models\RestaurantOrder::where('id', $request->restaurant_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
+            $transactionType = 'restaurant_orders';
         } elseif ($request->package_order_id) {
-            $totalAmount = \App\Models\PackageOrder::where('id', $request->package_order_id)
-                                                   ->where('guest_id', $guestId)
-                                                   ->firstOrFail()->total_amount;
+            $totalAmount = \App\Models\PackageOrder::where('id', $request->package_order_id)->where('guest_id', $guestId)->firstOrFail()->total_amount;
+            $transactionType = 'package_orders';
         } else {
             abort(400, 'Pesanan tidak ditemukan atau bukan milik Anda.');
         }
 
-        $transactionType = $request->transaction_type;
         $discountApplied = 0;
         $activeDiscount = Discount::where('is_active', true)
             ->whereDate('valid_from', '<=', now())
@@ -116,23 +113,30 @@ class GuestPaymentController extends Controller
             if ($payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
         }
 
-        if (!$isOwner) {
-            abort(403, 'Akses Ditangguhkan: Transaksi ini bukan milik Anda.');
-        }
+        if (!$isOwner) abort(403, 'Akses Ditangguhkan.');
 
         \Midtrans\Config::$serverKey = config('midtrans.server_key');
         \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
         \Midtrans\Config::$isSanitized = true;
         \Midtrans\Config::$is3ds = true;
 
-        $orderPrefix = 'PAY-';
-        if ($payment->booking) $orderPrefix = 'ROOM-';
-        elseif ($payment->restaurantOrder) $orderPrefix = 'RESTO-';
-        elseif ($payment->packageOrder) $orderPrefix = 'PKG-'; 
+        // [X-01 & X-02] FIX: Gunakan Order ID yang ada di DB. Jangan buat baru!
+        $orderId = $payment->midtrans_order_id;
+        
+        // Fallback jika data lama belum punya midtrans_order_id
+        if (!$orderId) {
+            $orderPrefix = 'PAY-';
+            if ($payment->booking) $orderPrefix = 'ROOM-';
+            elseif ($payment->restaurantOrder) $orderPrefix = 'RESTO-';
+            elseif ($payment->packageOrder) $orderPrefix = 'PKG-'; 
+            
+            $orderId = $orderPrefix . $payment->id . '-' . time();
+            $payment->update(['midtrans_order_id' => $orderId]);
+        }
 
         $params = [
             'transaction_details' => [
-                'order_id' => $orderPrefix . $payment->id . '-' . time(),
+                'order_id' => $orderId,
                 'gross_amount' => (int) $payment->amount,
             ],
             'customer_details' => [
@@ -155,7 +159,6 @@ class GuestPaymentController extends Controller
     {
         $payment = Payment::with(['booking', 'restaurantOrder', 'packageOrder'])->findOrFail($id);
         
-        // [B-02] FIX: Verifikasi kepemilikan sebelum mengizinkan update status
         $guestIdInSession = session('guest_id');
         $isOwner = false;
 
@@ -163,28 +166,41 @@ class GuestPaymentController extends Controller
         elseif ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestIdInSession) $isOwner = true;
         elseif ($payment->packageOrder && $payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
 
-        if (!$isOwner) {
-            abort(403, 'Akses Ditangguhkan: Anda tidak berhak mengubah status transaksi ini.');
-        }
+        if (!$isOwner) abort(403);
 
         $status = strtolower($request->status);
 
         if (in_array($status, ['paid', 'settlement', 'capture'])) {
-            $payment->payment_status = 'paid';
-            $payment->save();
-
+            $payment->update(['payment_status' => 'paid']);
             if ($payment->booking) $payment->booking->update(['status' => 'confirmed']);
-            // [B-03] FIX: Ganti 'placed' menjadi 'preparing' agar sesuai dengan enum database
             if ($payment->restaurantOrder) $payment->restaurantOrder->update(['status' => 'preparing']);
-            if ($payment->packageOrder) $payment->packageOrder->update(['status' => 'confirmed']);
-        } 
-        elseif (in_array($status, ['failed', 'deny', 'cancel', 'expire'])) {
-            $payment->payment_status = 'failed';
-            $payment->save();
+            
+            if ($payment->packageOrder) {
+                $payment->packageOrder->update(['status' => 'confirmed']);
+                // [N-01*] FIX: Konfirmasi juga Shadow Booking-nya
+                $shadow = Booking::where('guest_id', $payment->packageOrder->guest_id)
+                                 ->where('check_in_date', $payment->packageOrder->start_date)
+                                 ->where('check_out_date', $payment->packageOrder->end_date)
+                                 ->where('status', 'pending')
+                                 ->first();
+                if ($shadow) $shadow->update(['status' => 'confirmed']);
+            }
 
+        } elseif (in_array($status, ['failed', 'deny', 'cancel', 'expire'])) {
+            $payment->update(['payment_status' => 'failed']);
             if ($payment->booking) $payment->booking->update(['status' => 'cancelled']);
             if ($payment->restaurantOrder) $payment->restaurantOrder->update(['status' => 'cancelled']);
-            if ($payment->packageOrder) $payment->packageOrder->update(['status' => 'cancelled']);
+            
+            if ($payment->packageOrder) {
+                $payment->packageOrder->update(['status' => 'cancelled']);
+                // [N-01*] FIX: Batalkan juga Shadow Booking-nya agar kamar rilis
+                $shadow = Booking::where('guest_id', $payment->packageOrder->guest_id)
+                                 ->where('check_in_date', $payment->packageOrder->start_date)
+                                 ->where('check_out_date', $payment->packageOrder->end_date)
+                                 ->where('status', 'pending')
+                                 ->first();
+                if ($shadow) $shadow->update(['status' => 'cancelled']);
+            }
         }
 
         return response()->json(['success' => true]);

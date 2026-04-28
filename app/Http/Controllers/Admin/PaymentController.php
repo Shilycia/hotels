@@ -33,20 +33,33 @@ class PaymentController extends Controller
         }
 
         $payment->update($data);
+        
         if ($request->payment_status == 'paid') {
             if ($payment->booking_id) {
                 $payment->booking->update(['status' => 'confirmed']);
             } elseif ($payment->restaurant_order_id) {
-                // Makanan dibayar? Langsung suruh dapur masak
                 $payment->restaurantOrder->update(['status' => 'preparing']); 
             } elseif ($payment->package_order_id) {
                 $payment->packageOrder->update(['status' => 'confirmed']);
+                // [N-01*] FIX: Konfirmasi Shadow Booking
+                $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
+                            ->where('check_in_date', $payment->packageOrder->start_date)
+                            ->where('status', 'pending')->first();
+                if ($shadow) $shadow->update(['status' => 'confirmed']);
             }
         } elseif ($request->payment_status == 'failed') {
-            if ($payment->booking_id) $payment->booking->update(['status' => 'cancelled']);
-            // [K-04] FIX: Ganti 'completed' menjadi 'cancelled'
-            elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'cancelled']); 
-            elseif ($payment->package_order_id) $payment->packageOrder->update(['status' => 'cancelled']);
+            if ($payment->booking_id) {
+                $payment->booking->update(['status' => 'cancelled']);
+            } elseif ($payment->restaurant_order_id) {
+                $payment->restaurantOrder->update(['status' => 'cancelled']); 
+            } elseif ($payment->package_order_id) {
+                $payment->packageOrder->update(['status' => 'cancelled']);
+                // [N-01*] FIX: Batalkan Shadow Booking
+                $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
+                            ->where('check_in_date', $payment->packageOrder->start_date)
+                            ->where('status', 'pending')->first();
+                if ($shadow) $shadow->update(['status' => 'cancelled']);
+            }
         }
 
         return redirect()->route('admin.payments.index')->with('success', 'Status tagihan berhasil diperbarui!');
@@ -60,7 +73,6 @@ class PaymentController extends Controller
     
     public function webhookCallback(Request $request)
     {
-        // [K-08] FIX: Gunakan config() alih-alih env() agar aman saat config:cache
         $serverKey = config('midtrans.server_key');
         
         $hashed = hash("sha512", $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
@@ -85,15 +97,28 @@ class PaymentController extends Controller
                     $payment->restaurantOrder->update(['status' => 'preparing']);
                 } elseif ($payment->package_order_id) {
                     $payment->packageOrder->update(['status' => 'confirmed']);
+                    // [N-01*] FIX: Konfirmasi Shadow Booking
+                    $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
+                                ->where('check_in_date', $payment->packageOrder->start_date)
+                                ->where('status', 'pending')->first();
+                    if ($shadow) $shadow->update(['status' => 'confirmed']);
                 }
 
             } elseif ($transactionStatus == 'deny' || $transactionStatus == 'cancel' || $transactionStatus == 'expire') {
                 $payment->update(['payment_status' => 'failed']);
                 
-                if ($payment->booking_id) $payment->booking->update(['status' => 'cancelled']);
-                // [K-04] FIX: Ganti 'completed' menjadi 'cancelled'
-                elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'cancelled']);
-                elseif ($payment->package_order_id) $payment->packageOrder->update(['status' => 'cancelled']);
+                if ($payment->booking_id) {
+                    $payment->booking->update(['status' => 'cancelled']);
+                } elseif ($payment->restaurant_order_id) {
+                    $payment->restaurantOrder->update(['status' => 'cancelled']);
+                } elseif ($payment->package_order_id) {
+                    $payment->packageOrder->update(['status' => 'cancelled']);
+                    // [N-01*] FIX: Batalkan Shadow Booking
+                    $shadow = \App\Models\Booking::where('guest_id', $payment->packageOrder->guest_id)
+                                ->where('check_in_date', $payment->packageOrder->start_date)
+                                ->where('status', 'pending')->first();
+                    if ($shadow) $shadow->update(['status' => 'cancelled']);
+                }
             }
 
             return response()->json(['message' => 'Webhook success']);
