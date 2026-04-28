@@ -18,6 +18,7 @@ use App\Models\RoomType;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB; // Ditambahkan untuk fungsi Transaction & Locking
 
 class PageController extends Controller
 {
@@ -221,42 +222,66 @@ class PageController extends Controller
             $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
         }
 
-        $finalTotal = $subtotal - $autoDiscountAmount;
+        try {
+            // [W-03] FIX: Mulai DB Transaction untuk mencegah Race Condition (Double-Claim)
+            $payment = DB::transaction(function () use ($request, $availableRoom, $checkInDate, $checkOutDate, $totalNights, $subtotal, $autoDiscountAmount) {
+                $voucherAmount = 0;
+                $usedVoucher = null;
 
-        $usedVoucher = null;
-        if ($request->filled('voucher_code')) {
-            $voucher = Discount::where('code', $request->voucher_code)->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->first();
-            if ($voucher) {
-                if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
-                    return back()->with('error', 'Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
+                if ($request->filled('voucher_code')) {
+                    // lockForUpdate() akan mengunci baris diskon ini sampai transaksi selesai
+                    $voucher = Discount::where('code', $request->voucher_code)
+                                ->where('is_active', true)
+                                ->whereDate('valid_until', '>=', now())
+                                ->whereIn('applicable_to', ['all', 'bookings'])
+                                ->lockForUpdate() 
+                                ->first();
+
+                    if ($voucher) {
+                        if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+                            throw new \Exception('Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
+                        }
+                        $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
+                        $usedVoucher = $voucher;
+                    }
                 }
-                $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
-                $finalTotal = ($voucher->is_stackable) ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
-                $usedVoucher = $voucher;
-            }
+
+                $finalTotal = $subtotal - $autoDiscountAmount;
+                $totalDiscountApplied = $autoDiscountAmount;
+
+                if ($usedVoucher) {
+                    $finalTotal = $usedVoucher->is_stackable ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
+                    $totalDiscountApplied = $usedVoucher->is_stackable ? ($autoDiscountAmount + $voucherAmount) : $voucherAmount;
+                }
+
+                $booking = new Booking();
+                $booking->guest_id = session('guest_id');
+                $booking->room_id = $availableRoom->id;
+                $booking->check_in_date = $checkInDate;
+                $booking->check_out_date = $checkOutDate;
+                $booking->total_nights = $totalNights;
+                $booking->total_amount = max(0, $finalTotal); 
+                $booking->status = 'pending'; 
+                $booking->special_request = $request->special_request;
+                $booking->save();
+
+                if ($usedVoucher) $usedVoucher->increment('used_count');
+
+                $payment = new Payment();
+                $payment->booking_id = $booking->id;
+                $payment->amount = $booking->total_amount;
+                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->payment_status = 'pending';
+                $payment->payment_method = 'midtrans';
+                $payment->save();
+
+                return $payment;
+            });
+
+            return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Kamar berhasil diamankan! Silakan lakukan pembayaran.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        $booking = new Booking();
-        $booking->guest_id = session('guest_id');
-        $booking->room_id = $availableRoom->id;
-        $booking->check_in_date = $request->check_in;
-        $booking->check_out_date = $request->check_out;
-        $booking->total_nights = $totalNights;
-        $booking->total_amount = max(0, $finalTotal); 
-        $booking->status = 'pending'; 
-        $booking->special_request = $request->special_request;
-        $booking->save();
-
-        if ($usedVoucher) $usedVoucher->increment('used_count');
-
-        $payment = new Payment();
-        $payment->booking_id = $booking->id;
-        $payment->amount = $booking->total_amount;
-        $payment->payment_status = 'pending';
-        $payment->payment_method = 'midtrans';
-        $payment->save();
-
-        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Kamar berhasil diamankan! Silakan lakukan pembayaran.');
     }
 
     public function storePackageOrder(Request $request)
@@ -282,55 +307,102 @@ class PageController extends Controller
 
         if (!$availableRoom) return back()->with('error', 'Kuota kamar untuk paket ini sudah penuh pada tanggal tersebut.');
 
-        $totalAmount = $package->total_price;
+        $subtotal = $package->total_price;
 
         if ($request->has('extra_menus')) {
             $extraMenus = RestaurantMenu::whereIn('id', $request->extra_menus)->get();
             foreach ($extraMenus as $menu) {
-                $totalAmount += $menu->price; 
+                $subtotal += $menu->price; 
             }
         }
 
-        $order = new PackageOrder();
-        $order->guest_id     = session('guest_id');
-        $order->package_id   = $package->id;
-        $order->start_date   = $request->check_in; 
-        $order->end_date     = $request->check_out;
-        $order->total_amount = $totalAmount;
-        $order->status       = 'pending';
-        $order->save();
-
-        $booking = new Booking();
-        $booking->guest_id       = session('guest_id');
-        $booking->room_id        = $availableRoom->id;
-        $booking->check_in_date  = $request->check_in;
-        $booking->check_out_date = $request->check_out;
-        $booking->total_nights   = $checkInDate->diffInDays($checkOutDate);
-        $booking->total_amount   = 0;
-        $booking->status         = 'pending';
-        $booking->special_request= 'Tamu Pemesan Paket: ' . $package->name;
-        $booking->save();
-
-        if ($request->has('extra_menus')) {
-            foreach ($request->extra_menus as $menuId) {
-                PackageOrderMeal::create([
-                    'package_order_id'   => $order->id,
-                    'restaurant_menu_id' => $menuId,
-                    'date'               => $request->check_in,
-                    'meal_time'          => 'dinner', 
-                    'quantity'           => 1,
-                ]);
-            }
+        // [W-01] FIX: Kalkulasi Diskon Otomatis untuk Paket
+        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'package_orders'])->get();
+        $autoDiscountAmount = 0;
+        foreach($autoDiscounts as $d) {
+            $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
         }
 
-        $payment = new Payment();
-        $payment->package_order_id = $order->id; 
-        $payment->amount           = $totalAmount;
-        $payment->payment_status   = 'pending';
-        $payment->payment_method   = 'midtrans';
-        $payment->save();
+        try {
+            $payment = DB::transaction(function () use ($request, $package, $availableRoom, $checkInDate, $checkOutDate, $subtotal, $autoDiscountAmount) {
+                $voucherAmount = 0;
+                $usedVoucher = null;
 
-        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Paket berhasil dibuat! Silakan selesaikan pembayaran.');
+                // [W-01] FIX: Fitur Voucher Manual untuk Paket
+                if ($request->filled('voucher_code')) {
+                    $voucher = Discount::where('code', $request->voucher_code)
+                                ->where('is_active', true)
+                                ->whereDate('valid_until', '>=', now())
+                                ->whereIn('applicable_to', ['all', 'package_orders'])
+                                ->lockForUpdate() 
+                                ->first();
+
+                    if ($voucher) {
+                        if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+                            throw new \Exception('Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
+                        }
+                        $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
+                        $usedVoucher = $voucher;
+                    }
+                }
+
+                $finalTotal = $subtotal - $autoDiscountAmount;
+                $totalDiscountApplied = $autoDiscountAmount;
+
+                if ($usedVoucher) {
+                    $finalTotal = $usedVoucher->is_stackable ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
+                    $totalDiscountApplied = $usedVoucher->is_stackable ? ($autoDiscountAmount + $voucherAmount) : $voucherAmount;
+                }
+
+                $order = new PackageOrder();
+                $order->guest_id     = session('guest_id');
+                $order->package_id   = $package->id;
+                $order->start_date   = $checkInDate; 
+                $order->end_date     = $checkOutDate;
+                $order->total_amount = max(0, $finalTotal);
+                $order->status       = 'pending';
+                $order->save();
+
+                $booking = new Booking();
+                $booking->guest_id       = session('guest_id');
+                $booking->room_id        = $availableRoom->id;
+                $booking->check_in_date  = $checkInDate;
+                $booking->check_out_date = $checkOutDate;
+                $booking->total_nights   = $checkInDate->diffInDays($checkOutDate);
+                $booking->total_amount   = 0;
+                $booking->status         = 'pending';
+                $booking->special_request= 'Tamu Pemesan Paket: ' . $package->name;
+                $booking->save();
+
+                if ($request->has('extra_menus')) {
+                    foreach ($request->extra_menus as $menuId) {
+                        PackageOrderMeal::create([
+                            'package_order_id'   => $order->id,
+                            'restaurant_menu_id' => $menuId,
+                            'date'               => $checkInDate,
+                            'meal_time'          => 'dinner', 
+                            'quantity'           => 1,
+                        ]);
+                    }
+                }
+
+                if ($usedVoucher) $usedVoucher->increment('used_count');
+
+                $payment = new Payment();
+                $payment->package_order_id = $order->id; 
+                $payment->amount           = $order->total_amount;
+                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->payment_status   = 'pending';
+                $payment->payment_method   = 'midtrans';
+                $payment->save();
+
+                return $payment;
+            });
+
+            return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Paket berhasil dibuat! Silakan selesaikan pembayaran.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     public function contact()
@@ -494,52 +566,74 @@ class PageController extends Controller
         foreach($autoDiscounts as $d) {
             $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
         }
-        $finalTotal = $subtotal - $autoDiscountAmount;
 
-        $usedVoucher = null;
-        if ($request->filled('voucher_code')) {
-            $voucher = Discount::where('code', $request->voucher_code)->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'restaurant_orders'])->first();
-            if ($voucher) {
-                if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
-                    return back()->with('error', 'Pesanan gagal: Voucher promo sudah kehabisan kuota.');
+        try {
+            $payment = DB::transaction(function () use ($request, $activeBooking, $cart, $subtotal, $autoDiscountAmount) {
+                $voucherAmount = 0;
+                $usedVoucher = null;
+
+                if ($request->filled('voucher_code')) {
+                    $voucher = Discount::where('code', $request->voucher_code)
+                                ->where('is_active', true)
+                                ->whereDate('valid_until', '>=', now())
+                                ->whereIn('applicable_to', ['all', 'restaurant_orders'])
+                                ->lockForUpdate()
+                                ->first();
+
+                    if ($voucher) {
+                        if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
+                            throw new \Exception('Pesanan gagal: Voucher promo sudah kehabisan kuota.');
+                        }
+                        $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
+                        $usedVoucher = $voucher;
+                    }
                 }
-                $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
-                $finalTotal = ($voucher->is_stackable) ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
-                $usedVoucher = $voucher;
-            }
+
+                $finalTotal = $subtotal - $autoDiscountAmount;
+                $totalDiscountApplied = $autoDiscountAmount;
+
+                if ($usedVoucher) {
+                    $finalTotal = $usedVoucher->is_stackable ? ($subtotal - $autoDiscountAmount - $voucherAmount) : ($subtotal - $voucherAmount);
+                    $totalDiscountApplied = $usedVoucher->is_stackable ? ($autoDiscountAmount + $voucherAmount) : $voucherAmount;
+                }
+
+                $order = new RestaurantOrder();
+                $order->guest_id = session('guest_id');
+                $order->booking_id = ($request->order_type == 'room_service') ? $activeBooking->id : null;
+                $order->order_type = $request->order_type;
+                $order->table_number = ($request->order_type == 'dine_in') ? $request->table_number : null;
+                $order->total_amount = max(0, $finalTotal);
+                $order->status = 'pending';
+                $order->save();
+
+                foreach($cart as $item) {
+                    RestaurantOrderDetail::create([
+                        'restaurant_order_id' => $order->id,
+                        'restaurant_menu_id'  => $item['id'],
+                        'quantity'            => $item['qty'],
+                        'unit_price'          => $item['price'],
+                        'subtotal'            => $item['qty'] * $item['price'],
+                        'notes'               => $item['notes'] ?? null
+                    ]);
+                }
+
+                if ($usedVoucher) $usedVoucher->increment('used_count');
+
+                $payment = new Payment();
+                $payment->restaurant_order_id = $order->id; 
+                $payment->amount = $order->total_amount;
+                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->payment_status = 'pending';
+                $payment->payment_method = 'midtrans';
+                $payment->save();
+
+                return $payment;
+            });
+
+            session()->forget('restaurant_cart');
+            return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Makanan berhasil dibuat!');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        $order = new RestaurantOrder();
-        $order->guest_id = session('guest_id');
-        $order->booking_id = ($request->order_type == 'room_service') ? $activeBooking->id : null;
-        $order->order_type = $request->order_type;
-        $order->table_number = ($request->order_type == 'dine_in') ? $request->table_number : null;
-        $order->total_amount = max(0, $finalTotal);
-        $order->status = 'pending';
-        $order->save();
-
-        foreach($cart as $item) {
-            RestaurantOrderDetail::create([
-                'restaurant_order_id' => $order->id,
-                'restaurant_menu_id'  => $item['id'],
-                'quantity'            => $item['qty'],
-                'unit_price'          => $item['price'],
-                'subtotal'            => $item['qty'] * $item['price'],
-                'notes'               => $item['notes'] ?? null
-            ]);
-        }
-
-        if ($usedVoucher) $usedVoucher->increment('used_count');
-
-        $payment = new Payment();
-        $payment->restaurant_order_id = $order->id; 
-        $payment->amount = $order->total_amount;
-        $payment->payment_status = 'pending';
-        $payment->payment_method = 'midtrans';
-        $payment->save();
-
-        session()->forget('restaurant_cart');
-
-        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Pesanan Makanan berhasil dibuat!');
     }
 }
