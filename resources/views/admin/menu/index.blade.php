@@ -4,7 +4,6 @@
 
 @section('content')
 <style>
-    /* ... Style sama persis seperti milikmu ... */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44,36,32,0.5); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.25s ease; }
     .modal-overlay.show { display: flex; opacity: 1; }
     .modal-content { background: #fff; border-radius: 8px; width: 100%; max-width: 550px; padding: 24px; border: 1px solid var(--sand2); transform: translateY(16px); transition: transform 0.25s ease; max-height: 90vh; overflow-y: auto; }
@@ -48,7 +47,7 @@
 <div class="section-header">
     <div>
         <div class="section-title">Menu Restoran</div>
-        <div class="section-desc">Kelola daftar menu makanan dan minuman restoran Hotel Neo.</div>
+        <div class="section-desc">Kelola daftar menu makanan dan minuman restoran.</div>
     </div>
     <button class="btn btn-primary" onclick="openModal('modalAdd')">
         <i class="fas fa-plus"></i> Tambah Menu
@@ -83,7 +82,6 @@
                         <div class="menu-cell">
                             <div class="menu-thumb">
                                 @if($menu->foto_url)
-                                    {{-- Menggunakan storage link --}}
                                     <img src="{{ asset('storage/' . $menu->foto_url) }}" alt="{{ $menu->name }}">
                                 @else
                                     <i class="fas fa-utensils"></i>
@@ -106,7 +104,6 @@
                     </td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
-                            {{-- Lempar object $menu utuh ke JavaScript --}}
                             <button class="btn btn-outline btn-sm" onclick="openEditModal({{ json_encode($menu) }})">
                                 <i class="fas fa-pen"></i>
                             </button>
@@ -147,16 +144,17 @@
                 <label class="form-label">Nama Menu</label>
                 <input type="text" name="name" class="form-control" placeholder="Contoh: Nasi Goreng Spesial" required>
             </div>
+            
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Kategori</label>
-                    <select name="category" class="form-control" required>
+                    <select name="category" id="add_category" class="form-control" onchange="togglePaketItems('add')" required>
                         <option value="">-- Pilih --</option>
                         <option value="food">Makanan (Food)</option>
                         <option value="drink">Minuman (Drink)</option>
                         <option value="dessert">Dessert</option>
                         <option value="snack">Snack</option>
-                        <option value="paket">Paket (Bundle)</option> {{-- Ditambahkan --}}
+                        <option value="paket">Paket (Bundle)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -164,41 +162,56 @@
                     <input type="number" name="price" class="form-control" placeholder="Contoh: 45000" min="0" required>
                 </div>
             </div>
+
+            {{-- Dinamis: Muncul hanya jika kategori = paket --}}
+            <div class="form-group" id="add_paket_items_container" style="display: none; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px dashed #ced4da;">
+                <label class="form-label" style="color: var(--clay)">Pilih Isi Paket</label>
+                <span style="font-size: 10px; color: var(--ink3); display: block; margin-bottom: 5px;">Tahan tombol CTRL (Windows) / CMD (Mac) untuk memilih lebih dari 1 menu.</span>
+                <select name="paket_items[]" id="add_paket_items" class="form-control" multiple style="height: 120px;">
+                    @foreach($foodItems as $item)
+                        <option value="{{ $item->id }}">{{ $item->name }} (Rp {{ number_format($item->price, 0, ',', '.') }})</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Waktu Saji (Menit)</label>
-                    <input type="number" name="prep_time" class="form-control" placeholder="Opsional" min="0">
+                    <label class="form-label">Bisa Bundling Kamar?</label>
+                    <select name="can_bundle_with_room" class="form-control" required>
+                        <option value="0">Tidak (Hanya Beli Biasa)</option>
+                        <option value="1">Ya (Bisa Jadi Layanan Kamar)</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Kalori (kcal)</label>
-                    <input type="number" name="calories" class="form-control" placeholder="Opsional" min="0">
+                    <label class="form-label">Status Ketersediaan</label>
+                    <select name="is_available" class="form-control" required>
+                        <option value="1">Tersedia</option>
+                        <option value="0">Habis (Sold Out)</option>
+                    </select>
                 </div>
             </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Porsi</label>
                     <input type="text" name="serving" class="form-control" placeholder="Contoh: 1 Orang">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Info Alergi</label>
-                    <input type="text" name="allergens" class="form-control" placeholder="Contoh: Kacang, Seafood">
+                    <label class="form-label">Kalori (kcal)</label>
+                    <input type="number" name="calories" class="form-control" placeholder="Opsional" min="0">
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label">Status Ketersediaan</label>
-                <select name="is_available" class="form-control" required>
-                    <option value="1">Tersedia</option>
-                    <option value="0">Habis (Sold Out)</option>
-                </select>
-            </div>
+
             <div class="form-group">
                 <label class="form-label">Deskripsi</label>
                 <textarea name="description" class="form-control" placeholder="Deskripsi singkat menu..."></textarea>
             </div>
+            
             <div class="form-group">
                 <label class="form-label">Foto Menu (Opsional)</label>
                 <input type="file" name="foto_url" class="form-control" accept="image/*">
             </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalAdd')">Batal</button>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan</button>
@@ -220,10 +233,11 @@
                 <label class="form-label">Nama Menu</label>
                 <input type="text" name="name" id="edit_name" class="form-control" required>
             </div>
+            
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Kategori</label>
-                    <select name="category" id="edit_category" class="form-control" required>
+                    <select name="category" id="edit_category" class="form-control" onchange="togglePaketItems('edit')" required>
                         <option value="food">Makanan (Food)</option>
                         <option value="drink">Minuman (Drink)</option>
                         <option value="dessert">Dessert</option>
@@ -236,42 +250,56 @@
                     <input type="number" name="price" id="edit_price" class="form-control" min="0" required>
                 </div>
             </div>
+
+            {{-- Dinamis Edit Paket --}}
+            <div class="form-group" id="edit_paket_items_container" style="display: none; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px dashed #ced4da;">
+                <label class="form-label" style="color: var(--clay)">Pilih Isi Paket</label>
+                <span style="font-size: 10px; color: var(--ink3); display: block; margin-bottom: 5px;">Tahan CTRL/CMD untuk memilih > 1 menu.</span>
+                <select name="paket_items[]" id="edit_paket_items" class="form-control" multiple style="height: 120px;">
+                    @foreach($foodItems as $item)
+                        <option value="{{ $item->id }}">{{ $item->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Waktu Saji (Menit)</label>
-                    <input type="number" name="prep_time" id="edit_prep_time" class="form-control" min="0">
+                    <label class="form-label">Bisa Bundling Kamar?</label>
+                    <select name="can_bundle_with_room" id="edit_can_bundle" class="form-control" required>
+                        <option value="0">Tidak (Hanya Beli Biasa)</option>
+                        <option value="1">Ya (Bisa Jadi Layanan Kamar)</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Kalori (kcal)</label>
-                    <input type="number" name="calories" id="edit_calories" class="form-control" min="0">
+                    <label class="form-label">Status Ketersediaan</label>
+                    <select name="is_available" id="edit_is_available" class="form-control" required>
+                        <option value="1">Tersedia</option>
+                        <option value="0">Habis (Sold Out)</option>
+                    </select>
                 </div>
             </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Porsi</label>
                     <input type="text" name="serving" id="edit_serving" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Info Alergi</label>
-                    <input type="text" name="allergens" id="edit_allergens" class="form-control">
+                    <label class="form-label">Kalori (kcal)</label>
+                    <input type="number" name="calories" id="edit_calories" class="form-control" min="0">
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label">Status Ketersediaan</label>
-                <select name="is_available" id="edit_is_available" class="form-control" required>
-                    <option value="1">Tersedia</option>
-                    <option value="0">Habis (Sold Out)</option>
-                </select>
-            </div>
+
             <div class="form-group">
                 <label class="form-label">Deskripsi</label>
                 <textarea name="description" id="edit_description" class="form-control"></textarea>
             </div>
+            
             <div class="form-group">
                 <label class="form-label">Ganti Foto (Opsional)</label>
                 <input type="file" name="foto_url" class="form-control" accept="image/*">
-                <small style="color: var(--ink3); font-size: 10px;">Kosongkan jika tidak ingin mengubah foto</small>
             </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalEdit')">Batal</button>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-rotate-right"></i> Update</button>
@@ -287,17 +315,39 @@
     function openModal(id)  { document.getElementById(id).classList.add('show'); }
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
+    // Logika memunculkan Multi-Select Paket jika kategori = 'paket'
+    function togglePaketItems(type) {
+        let categoryVal = document.getElementById(type + '_category').value;
+        let container = document.getElementById(type + '_paket_items_container');
+        if(categoryVal === 'paket') {
+            container.style.display = 'block';
+        } else {
+            container.style.display = 'none';
+        }
+    }
+
     function openEditModal(menu) {
         document.getElementById('edit_name').value = menu.name;
         document.getElementById('edit_category').value = menu.category;
         document.getElementById('edit_price').value = menu.price;
-        document.getElementById('edit_prep_time').value = menu.prep_time || '';
-        document.getElementById('edit_calories').value = menu.calories || '';
         document.getElementById('edit_serving').value = menu.serving || '';
-        document.getElementById('edit_allergens').value = menu.allergens || '';
+        document.getElementById('edit_calories').value = menu.calories || '';
         document.getElementById('edit_is_available').value = menu.is_available ? "1" : "0";
+        document.getElementById('edit_can_bundle').value = menu.can_bundle_with_room ? "1" : "0";
         document.getElementById('edit_description').value = menu.description || '';
         
+        // Panggil untuk nge-trigger show/hide box paket
+        togglePaketItems('edit');
+
+        // Jika ini paket, pilih otomatis item di kotak multi-selectnya
+        if(menu.category === 'paket' && menu.paket_items) {
+            let selectedIds = menu.paket_items.map(item => item.id.toString());
+            let options = document.getElementById('edit_paket_items').options;
+            for(let i=0; i < options.length; i++) {
+                options[i].selected = selectedIds.includes(options[i].value);
+            }
+        }
+
         document.getElementById('formEditMenu').action = '/admin/menus/' + menu.id;
         openModal('modalEdit');
     }

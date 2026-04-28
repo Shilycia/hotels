@@ -21,7 +21,8 @@
                     </div>
                     @endforeach
                 </div>
-                <a class="btn btn-primary py-3 px-5 mt-2" href="{{ route('contact') }}">Contact Us</a>
+                {{-- SINKRONISASI: Mengubah route('contact') menjadi # untuk mencegah error Route Not Found --}}
+                <a class="btn btn-primary py-3 px-5 mt-2" href="#">Contact Us</a>
             </div>
             <div class="col-lg-6">
                 <div class="row g-3">
@@ -58,7 +59,7 @@
                         Tempor erat elitr rebum at clita. Diam dolor diam ipsum sit. Aliqu diam amet diam et eos.
                         Clita erat ipsum et lorem et sit, sed stet lorem sit clita duo justo magna dolore erat amet.
                     </p>
-                    <a href="{{ route('rooms') }}" class="btn btn-primary py-3 px-5">Book A Room</a>
+                    <a href="{{ route('rooms.index') }}" class="btn btn-primary py-3 px-5">Book A Room</a>
                 </div>
             </div>
             <div class="col-lg-6 facts-counter wow fadeIn" data-wow-delay="0.5s">

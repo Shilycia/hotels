@@ -54,7 +54,7 @@
             <a href="{{ route('rooms.index') }}" class="nav-item nav-link {{ request()->routeIs('rooms.*') ? 'active' : '' }}">
                 Kamar
             </a>
-            <a href="{{ route('restaurant.index') }}" class="nav-item nav-link {{ request()->routeIs('restaurant.*') ? 'active' : '' }}">
+            <a href="{{ route('menus') }}" class="nav-item nav-link {{ request()->routeIs('restaurant.*') ? 'active' : '' }}">
                 Restoran
             </a>
             <a href="{{ route('about') }}" class="nav-item nav-link {{ request()->routeIs('about') ? 'active' : '' }}">

@@ -126,7 +126,8 @@
                             {{-- Image --}}
                             <div class="position-relative" style="height:180px;overflow:hidden;background:#f1f3f5">
                                 @if(!empty($menu->foto_url))
-                                    <img src="{{ asset($menu->foto_url) }}" alt="{{ $menu->name }}"
+                                    {{-- TAMBAHKAN 'storage/' DI SINI AGAR GAMBAR MUNCUL --}}
+                                    <img src="{{ asset('storage/' . $menu->foto_url) }}" alt="{{ $menu->name }}"
                                         class="w-100 h-100" style="object-fit:cover">
                                 @else
                                     <div class="w-100 h-100 d-flex align-items-center justify-content-center">
@@ -148,6 +149,16 @@
                                 <p class="text-muted mb-3" style="font-size:12.5px;line-height:1.55; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
                                     {{ $menu->description ?? 'Delicious menu item prepared fresh by our chef.' }}
                                 </p>
+                                @if($menu->category == 'paket' && $menu->paketItems->count() > 0)
+                                    <div class="mb-3">
+                                        <span class="d-inline-block mb-1" style="font-size: 10px; font-weight: 700; color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fa fa-box-open me-1"></i> Isi Paket:
+                                        </span>
+                                        <div class="text-muted fw-semibold" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            {{ $menu->paketItems->pluck('name')->join(' + ') }}
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span class="fw-bold text-primary" style="font-size:16px">
                                         Rp {{ number_format($menu->price ?? 0, 0, ',', '.') }}
@@ -171,25 +182,18 @@
                                     style="font-size:13px;border-radius:8px">
                                     <i class="fa fa-sign-in-alt me-2"></i>Login to Order
                                 </a>
-                            @elseif(!isset($activeBooking) || !$activeBooking)
-                                {{-- Jika tamu sudah login tapi belum punya kamar aktif --}}
-                                <a href="{{ route('booking') }}" class="btn btn-warning w-100 py-2 text-dark fw-semibold"
-                                    style="font-size:13px;border-radius:8px">
-                                    <i class="fa fa-bed me-2"></i>Book Room First
-                                </a>
                             @else
-                                {{-- Jika tamu valid dan punya kamar --}}
+                                {{-- BEBAS PESAN! Tidak ada lagi syarat harus punya kamar (activeBooking) --}}
                                 <button type="button" 
                                         onclick="openOrderModal('{{ $menu->id }}', '{{ addslashes($menu->name) }}', '{{ $menu->price }}')"
                                         class="btn btn-primary w-100 py-2"
                                         style="font-size:13px;border-radius:8px">
-                                    <i class="fa fa-concierge-bell me-2"></i>Order Now
+                                    <i class="fa fa-cart-plus me-2"></i>Add to Cart
                                 </button>
                             @endif
                         </div>
 
                     </div>
-                </div>
                 @endforeach
             </div>
 
@@ -205,70 +209,62 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="orderModalLabel"><i class="fa fa-utensils me-2"></i>Place Your Order</h5>
+                <h5 class="modal-title" id="orderModalLabel"><i class="fa fa-utensils me-2"></i>Add to Cart</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            
             @if(session('guest_id'))
-                @if(isset($activeBooking) && $activeBooking)
-                    <form action="{{ route('menus.order') }}" method="POST" id="orderForm">
-                        @csrf
-                        <div class="modal-body p-4">
-                            <div class="alert alert-light border mb-4">
-                                <h6 class="fw-bold mb-1" id="modal_menu_name">Menu Name</h6>
-                                <span class="text-primary fw-bold" id="modal_menu_price">Rp 0</span>
-                            </div>
+                <form action="{{ route('restaurant.cart.add') }}" method="POST" id="orderForm">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="alert alert-light border mb-4">
+                            <h6 class="fw-bold mb-1" id="modal_menu_name">Menu Name</h6>
+                            <span class="text-primary fw-bold" id="modal_menu_price">Rp 0</span>
+                        </div>
 
-                            <input type="hidden" name="menu_id" id="modal_menu_id" required>
-                            <input type="hidden" name="booking_id" value="{{ $activeBooking->id }}">
-                            <input type="hidden" id="modal_menu_raw_price">
+                        <input type="hidden" name="menu_id" id="modal_menu_id" required>
+                        <input type="hidden" id="modal_menu_raw_price">
 
-                            <div class="row g-3">
-                                <div class="col-md-8">
-                                    <label class="form-label small text-muted">Deliver to Room</label>
-                                    <div class="form-control bg-light">
-                                        <i class="fa fa-door-open text-warning me-2"></i>
-                                        <span class="fw-bold">Room {{ $activeBooking->room->room_number ?? '-' }}</span>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-bold text-uppercase">Portion (Qty)</label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="d-flex align-items-center overflow-hidden rounded" style="border:1px solid #dee2e6">
+                                        <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(-1)">
+                                            <i class="fa fa-minus" style="font-size:11px"></i>
+                                        </button>
+                                        <input type="number" name="qty" id="modal_qty" class="form-control border-0 text-center fw-bold" style="width:60px;font-size:15px" value="1" min="1" required readonly>
+                                        <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(1)">
+                                            <i class="fa fa-plus" style="font-size:11px"></i>
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Portion (Qty)</label>
-                                    <input type="number" name="qty" id="modal_qty" class="form-control" value="1" min="1" required oninput="calculateTotal()">
-                                </div>
-                                <div class="col-12 mt-3">
-                                    <label class="form-label small text-muted">Special Notes (Optional)</label>
-                                    <textarea name="notes" class="form-control" rows="2" placeholder="E.g. less spicy..."></textarea>
-                                </div>
                             </div>
+                            <div class="col-12 mt-3">
+                                <label class="form-label small text-muted fw-bold text-uppercase">Special Notes (Optional)</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="E.g. less spicy, no peanuts..."></textarea>
+                            </div>
+                        </div>
 
-                            <hr class="my-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted fw-bold">Total Payment:</span>
-                                <h4 class="text-primary mb-0 fw-bold" id="modal_total_price">Rp 0</h4>
-                            </div>
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Estimated Total:</span>
+                            <h4 class="text-primary mb-0 fw-bold" id="modal_total_price">Rp 0</h4>
                         </div>
-                        <div class="modal-footer bg-light">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary px-4" id="orderBtn">
-                                <span id="orderLabel"><i class="fa fa-credit-card me-2"></i>Pay Now</span>
-                            </button>
-                        </div>
-                    </form>
-                @else
-                    <div class="modal-body p-5 text-center">
-                        <i class="fa fa-exclamation-triangle text-warning mb-3" style="font-size:3rem;"></i>
-                        <h5 class="fw-bold">No Active Room Booking</h5>
-                        <p class="text-muted mb-4" style="font-size:14px">
-                            In-Room Dining menu can only be ordered if you have an active room booking with us.
-                        </p>
-                        <a href="{{ route('booking') }}" class="btn btn-primary px-5 py-2">Book a Room Now</a>
                     </div>
-                @endif
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4" id="orderBtn">
+                            <span id="orderLabel"><i class="fa fa-cart-plus me-2"></i>Add to Cart</span>
+                        </button>
+                    </div>
+                </form>
             @else
                 <div class="modal-body p-5 text-center">
                     <i class="fa fa-user-lock text-muted mb-3" style="font-size:3rem; opacity:0.5"></i>
                     <h5 class="fw-bold">Authentication Required</h5>
                     <p class="text-muted mb-4" style="font-size:14px">
-                        Please sign in to access our exclusive In-Room Dining service.
+                        Please sign in to place an order.
                     </p>
                     <a href="{{ route('guest.login') }}" class="btn btn-primary px-5 py-2">Sign In</a>
                 </div>
@@ -276,6 +272,43 @@
         </div>
     </div>
 </div>
+
+{{-- FLOATING CART BUTTON --}}
+@php
+    $cart = session()->get('restaurant_cart', []);
+    $cartTotalItems = 0;
+    $cartTotalPrice = 0;
+    foreach($cart as $item) {
+        $cartTotalItems += $item['qty'];
+        $cartTotalPrice += ($item['price'] * $item['qty']);
+    }
+@endphp
+
+@if($cartTotalItems > 0)
+<div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050; animation: bounceIn 0.5s;">
+    <a href="{{ route('checkout.restaurant') }}" class="btn btn-primary shadow-lg rounded-pill d-flex align-items-center py-2 px-4 text-decoration-none" style="border: 3px solid white;">
+        <div class="position-relative me-3">
+            <i class="fa fa-shopping-cart" style="font-size: 1.5rem;"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.7rem; padding: 0.25em 0.5em;">
+                {{ $cartTotalItems }}
+            </span>
+        </div>
+        <div class="text-start border-start border-white ps-3 ms-1 border-opacity-50">
+            <span class="d-block small fw-bold" style="line-height: 1;">Checkout Now</span>
+            <span class="d-block fw-bold" style="font-size: 1.1rem; line-height: 1.2;">Rp {{ number_format($cartTotalPrice, 0, ',', '.') }}</span>
+        </div>
+        <i class="fa fa-chevron-right ms-3"></i>
+    </a>
+</div>
+
+<style>
+    @keyframes bounceIn {
+        0% { transform: scale(0.1); opacity: 0; }
+        60% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+</style>
+@endif
 
 @endsection
 
@@ -290,34 +323,25 @@
 @push('scripts')
 <script>
     function openOrderModal(id, name, price) {
-        // Set nilai ke dalam input modal
         document.getElementById('modal_menu_id').value = id;
         document.getElementById('modal_menu_name').innerText = name;
         
-        // Format harga
         let formattedPrice = new Intl.NumberFormat('id-ID').format(price);
         document.getElementById('modal_menu_price').innerText = 'Rp ' + formattedPrice;
         
-        // Simpan harga asli untuk kalkulasi
         document.getElementById('modal_menu_raw_price').value = price;
-        
-        // Reset quantity ke 1
         document.getElementById('modal_qty').value = 1;
         
-        // Kalkulasi awal
         calculateTotal();
 
-        // Tampilkan Modal (Menggunakan fungsi bawaan Bootstrap 5)
         var orderModal = new bootstrap.Modal(document.getElementById('orderModal'));
         orderModal.show();
     }
 
-    // JS untuk kalkulasi Total Harga secara real-time
     function calculateTotal() {
         let price = document.getElementById('modal_menu_raw_price').value;
         let qty = document.getElementById('modal_qty').value;
         
-        // Cek jika qty kosong atau minus
         if(!qty || qty < 1) qty = 1;
         
         let total = price * qty;

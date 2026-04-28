@@ -215,7 +215,7 @@
             <div class="col-12 text-center text-white">Menu belum tersedia.</div>
             @endforelse
             <div class="col-12 text-center mt-5 wow fadeInUp" data-wow-delay="0.3s">
-                <a href="{{ route('restaurant.index') }}" class="btn btn-primary py-3 px-5">Lihat Semua Menu</a>
+                <a href="{{ route('menus') }}" class="btn btn-primary py-3 px-5">Lihat Semua Menu</a>
             </div>
         </div>
     </div>

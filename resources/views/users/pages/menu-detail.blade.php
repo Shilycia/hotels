@@ -23,10 +23,8 @@
                      style="height:360px;background:#f1f3f5">
                     
                     @if(!empty($menu->foto_url))
-                        <img src="{{ asset($menu->foto_url) }}"
-                             alt="{{ $menu->name }}"
-                             class="w-100 h-100"
-                             style="object-fit:cover">
+                        <img src="{{ asset('storage/' . $menu->foto_url) }}" alt="{{ $menu->name }}"
+                                        class="w-100 h-100" style="object-fit:cover">
                     @else
                         <div class="w-100 h-100 d-flex align-items-center justify-content-center">
                             <i class="fa fa-utensils" style="font-size:4rem;color:#dee2e6"></i>
@@ -69,10 +67,8 @@
                                 <div class="rounded overflow-hidden border"
                                      style="height:80px;background:#f1f3f5">
                                     @if(!empty($related->foto_url))
-                                        <img src="{{ asset($related->foto_url) }}"
-                                             alt="{{ $related->name }}"
-                                             class="w-100 h-100"
-                                             style="object-fit:cover">
+                                        <img src="{{ asset('storage/' . $menu->foto_url) }}" alt="{{ $menu->name }}"
+                                        class="w-100 h-100" style="object-fit:cover">
                                     @else
                                         <div class="w-100 h-100 d-flex align-items-center justify-content-center">
                                             <i class="fa fa-utensils text-muted" style="font-size:1.2rem;opacity:.4"></i>
@@ -132,7 +128,30 @@
                 <p class="mb-4" style="font-size:14px;color:#6c757d;line-height:1.7">
                     {{ $menu->description ?? 'A delicious dish freshly prepared by our talented kitchen team using only the finest ingredients.' }}
                 </p>
-
+                @if($menu->category == 'paket' && $menu->paketItems->count() > 0)
+                    <div class="bg-light rounded p-4 mb-4 border" style="border-left: 4px solid #f39c12 !important;">
+                        <h6 class="fw-bold mb-3" style="color: #1a1f2e; font-size: 14px;">
+                            <i class="fa fa-box-open text-warning me-2"></i>Yang Anda dapatkan dalam paket ini:
+                        </h6>
+                        <ul class="list-unstyled mb-0">
+                            @foreach($menu->paketItems as $item)
+                                <li class="mb-3 pb-3 {{ !$loop->last ? 'border-bottom' : 'mb-0 pb-0' }} d-flex align-items-center">
+                                    <div class="rounded border d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 45px; height: 45px; background: #fff; overflow: hidden; flex-shrink: 0;">
+                                        @if($item->foto_url)
+                                            <img src="{{ asset('storage/' . $item->foto_url) }}" class="w-100 h-100" style="object-fit:cover">
+                                        @else
+                                            <i class="fa fa-utensils text-muted" style="font-size: 14px;"></i>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <span class="d-block fw-bold text-dark" style="font-size: 13.5px;">{{ $item->name }}</span>
+                                        <span class="d-block text-muted" style="font-size: 11.5px;">Termasuk 1 Porsi</span>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 {{-- Specs grid --}}
                 <div class="row g-2 mb-4">
                     @foreach([
@@ -172,71 +191,46 @@
                 {{-- Order Form --}}
                 @if($menu->is_available ?? true)
                 
-                @if(session('guest_id'))
-                {{-- Order Form --}}
-                @if($menu->is_available ?? true)
-                
                     @if(session('guest_id'))
-                        @if(isset($activeBooking) && $activeBooking)
-                            <form method="POST" action="{{ route('menus.order') }}" id="orderForm">
-                                @csrf
-                                <input type="hidden" name="menu_id" value="{{ $menu->id }}">
-                                <input type="hidden" name="booking_id" value="{{ $activeBooking->id }}">
+                        {{-- HAPUS PENGECEKAN activeBooking DI SINI, SEMUA GUEST BISA PESAN --}}
+                        <form method="POST" action="{{ route('restaurant.cart.add') }}" id="orderForm" class="bg-white rounded p-4 shadow-sm border">
+                            @csrf
+                            <input type="hidden" name="menu_id" value="{{ $menu->id }}">
+                            {{-- Booking ID tidak lagi dikirim dari sini, melainkan nanti di Checkout --}}
 
-                                <div class="mb-3">
-                                    <label class="fw-semibold d-block mb-2" style="font-size:12px;text-transform:uppercase;color:#344767">
-                                        Deliver to Room
-                                    </label>
-                                    <div class="d-flex align-items-center gap-2 rounded px-3 py-2" style="background:#fff3cd;border:1px solid #ffc107">
-                                        <i class="fa fa-door-open text-warning"></i>
-                                        <span style="font-size:13.5px;font-weight:600;color:#856404">
-                                            Room {{ $activeBooking->room->room_number ?? '-' }}
-                                        </span>
+                            <div class="mb-3">
+                                <label class="fw-semibold d-block mb-2" style="font-size:12px;text-transform:uppercase;color:#344767">
+                                    Quantity
+                                </label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="d-flex align-items-center overflow-hidden rounded" style="border:1px solid #dee2e6">
+                                        <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(-1)">
+                                            <i class="fa fa-minus" style="font-size:11px"></i>
+                                        </button>
+                                        <input type="number" name="qty" id="qty" class="form-control border-0 text-center fw-bold" style="width:60px;font-size:15px" value="1" min="1" readonly>
+                                        <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(1)">
+                                            <i class="fa fa-plus" style="font-size:11px"></i>
+                                        </button>
                                     </div>
+                                    <span class="text-muted" style="font-size:13px">
+                                        = <span id="totalDisplay" class="fw-bold text-primary fs-6">Rp {{ number_format($menu->price ?? 0, 0, ',', '.') }}</span>
+                                    </span>
                                 </div>
-
-                                <div class="mb-3">
-                                    <label class="fw-semibold d-block mb-2" style="font-size:12px;text-transform:uppercase;color:#344767">
-                                        Quantity
-                                    </label>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="d-flex align-items-center overflow-hidden rounded" style="border:1px solid #dee2e6">
-                                            <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(-1)">
-                                                <i class="fa fa-minus" style="font-size:11px"></i>
-                                            </button>
-                                            <input type="number" name="qty" id="qty" class="form-control border-0 text-center fw-bold" style="width:60px;font-size:15px" value="1" min="1" readonly>
-                                            <button type="button" class="btn btn-light border-0 px-3 py-2" onclick="changeQty(1)">
-                                                <i class="fa fa-plus" style="font-size:11px"></i>
-                                            </button>
-                                        </div>
-                                        <span class="text-muted" style="font-size:13px">
-                                            = <span id="totalDisplay" class="fw-bold text-primary fs-6">Rp {{ number_format($menu->price ?? 0, 0, ',', '.') }}</span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label class="fw-semibold d-block mb-2" style="font-size:12px;text-transform:uppercase;color:#344767">
-                                        Special Notes <span class="text-muted fw-normal">(optional)</span>
-                                    </label>
-                                    <textarea name="notes" class="form-control" rows="2" style="font-size:13.5px;resize:none" placeholder="E.g. no spicy, extra egg..."></textarea>
-                                </div>
-
-                                <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold" id="orderBtn">
-                                    <span id="orderLabel"><i class="fa fa-credit-card me-2"></i>Pay Now</span>
-                                </button>
-                            </form>
-                        @else
-                            <div class="rounded p-4 text-center" style="background:#fff3cd;border:1px solid #ffc107">
-                                <i class="fa fa-exclamation-triangle text-warning mb-2" style="font-size:2rem;"></i>
-                                <h6 class="fw-bold text-dark">Room Booking Required</h6>
-                                <p class="text-muted mb-3" style="font-size:13px">
-                                    You must have an active room booking to order from the restaurant.
-                                </p>
-                                <a href="{{ route('booking') }}" class="btn btn-primary px-4 py-2" style="font-size:13px">Book Room</a>
                             </div>
-                        @endif
+
+                            <div class="mb-4">
+                                <label class="fw-semibold d-block mb-2" style="font-size:12px;text-transform:uppercase;color:#344767">
+                                    Special Notes <span class="text-muted fw-normal">(optional)</span>
+                                </label>
+                                <textarea name="notes" class="form-control" rows="2" style="font-size:13.5px;resize:none" placeholder="E.g. no spicy, extra egg..."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold" id="orderBtn">
+                                <span id="orderLabel"><i class="fa fa-cart-plus me-2"></i>Add to Cart</span>
+                            </button>
+                        </form>
                     @else
+                        {{-- Jika belum login --}}
                         <div class="rounded p-4 text-center" style="background:#f8f9fa;border:1px dashed #dee2e6">
                             <i class="fa fa-user-lock text-muted mb-2" style="font-size:2rem;opacity:.4"></i>
                             <p class="text-muted mb-3" style="font-size:13px">Please sign in as a guest to place an order.</p>
@@ -245,34 +239,11 @@
                     @endif
                     
                 @else
+                    {{-- Jika barang Sold Out --}}
                     <div class="rounded p-4 text-center" style="background:#f8f9fa;border:1px dashed #dee2e6">
                         <i class="fa fa-ban text-danger mb-2" style="font-size:2rem;opacity:.5"></i>
                         <p class="text-muted mb-3" style="font-size:13px">This item is currently not available.</p>
                     </div>
-                @endif
-
-                @else
-                {{-- Not logged in --}}
-                <div class="rounded p-4 text-center" style="background:#f8f9fa;border:1px dashed #dee2e6">
-                    <i class="fa fa-user-lock text-muted mb-2" style="font-size:2rem;opacity:.4"></i>
-                    <p class="text-muted mb-3" style="font-size:13px">
-                        Please sign in as a guest to place an in-room dining order.
-                    </p>
-                    <a href="{{ route('guest.login') }}" class="btn btn-primary px-5">
-                        <i class="fa fa-sign-in-alt me-2"></i>Sign In
-                    </a>
-                </div>
-                @endif
-                @else
-                <div class="rounded p-4 text-center" style="background:#f8f9fa;border:1px dashed #dee2e6">
-                    <i class="fa fa-ban text-danger mb-2" style="font-size:2rem;opacity:.5"></i>
-                    <p class="text-muted mb-3" style="font-size:13px">
-                        This item is currently not available. Please check back later.
-                    </p>
-                    <a href="{{ route('menus') }}" class="btn btn-outline-secondary px-5">
-                        <i class="fa fa-arrow-left me-2"></i>Back to Menu
-                    </a>
-                </div>
                 @endif
 
             </div>
@@ -291,6 +262,43 @@
     </div>
 </div>
 
+{{-- FLOATING CART BUTTON --}}
+@php
+    $cart = session()->get('restaurant_cart', []);
+    $cartTotalItems = 0;
+    $cartTotalPrice = 0;
+    foreach($cart as $item) {
+        $cartTotalItems += $item['qty'];
+        $cartTotalPrice += ($item['price'] * $item['qty']);
+    }
+@endphp
+
+@if($cartTotalItems > 0)
+<div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050; animation: bounceIn 0.5s;">
+    <a href="{{ route('checkout.restaurant') }}" class="btn btn-primary shadow-lg rounded-pill d-flex align-items-center py-2 px-4 text-decoration-none" style="border: 3px solid white;">
+        <div class="position-relative me-3">
+            <i class="fa fa-shopping-cart" style="font-size: 1.5rem;"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.7rem; padding: 0.25em 0.5em;">
+                {{ $cartTotalItems }}
+            </span>
+        </div>
+        <div class="text-start border-start border-white ps-3 ms-1 border-opacity-50">
+            <span class="d-block small fw-bold" style="line-height: 1;">Checkout Now</span>
+            <span class="d-block fw-bold" style="font-size: 1.1rem; line-height: 1.2;">Rp {{ number_format($cartTotalPrice, 0, ',', '.') }}</span>
+        </div>
+        <i class="fa fa-chevron-right ms-3"></i>
+    </a>
+</div>
+
+<style>
+    @keyframes bounceIn {
+        0% { transform: scale(0.1); opacity: 0; }
+        60% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+</style>
+@endif
+
 @endsection
 
 @push('scripts')
@@ -308,9 +316,8 @@
     }
 
     document.getElementById('orderForm')?.addEventListener('submit', function () {
-        document.getElementById('orderLabel').classList.add('d-none');
-        document.getElementById('orderSpinner').classList.remove('d-none');
         document.getElementById('orderBtn').disabled = true;
+        document.getElementById('orderLabel').innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Adding...';
     });
 </script>
 @endpush

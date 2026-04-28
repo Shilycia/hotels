@@ -8,7 +8,7 @@
                 <h4 class="text-white mb-3">Hotel Neo</h4>
                 <a class="btn btn-link" href="{{ route('about') }}">Tentang Kami</a>
                 <a class="btn btn-link" href="{{ route('rooms.index') }}">Katalog Kamar</a>
-                <a class="btn btn-link" href="{{ route('restaurant.index') }}">Menu Restoran</a>
+                <a class="btn btn-link" href="{{ route('menus') }}">Menu Restoran</a>
                 <a class="btn btn-link" href="#">Kebijakan Privasi</a>
                 <a class="btn btn-link" href="#">Syarat & Ketentuan</a>
             </div>

@@ -15,5 +15,7 @@ class Payment extends Model
     // Relasi ke berbagai tipe transaksi
     public function booking() { return $this->belongsTo(Booking::class); }
     public function restaurantOrder() { return $this->belongsTo(RestaurantOrder::class); }
-    public function packageOrder() { return $this->belongsTo(PackageOrder::class); }
+    public function packageOrder() {
+    return $this->belongsTo(PackageOrder::class, 'package_order_id');
+}
 }

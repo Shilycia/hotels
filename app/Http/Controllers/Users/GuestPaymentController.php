@@ -74,36 +74,62 @@ class GuestPaymentController extends Controller
 
     public function showPayment($id)
     {
-        $payment = Payment::with('booking.guest')->findOrFail($id);
+        // 1. Muat pembayaran beserta KETIGA relasi yang mungkin ada
+        $payment = Payment::with(['booking.guest', 'restaurantOrder.guest', 'packageOrder.guest'])->findOrFail($id);
 
-        // Keamanan: Pastikan yang buka halaman ini adalah yang punya pesanan
-        if ($payment->booking->guest_id != session('guest_id')) {
-            abort(403, 'Akses Ditolak.');
+        // 2. Identifikasi Pemilik Pesanan (Kamar, Restoran, atau Paket)
+        $guest = null;
+        $isOwner = false;
+        $guestIdInSession = session('guest_id');
+
+        if ($payment->booking) {
+            $guest = $payment->booking->guest;
+            if ($payment->booking->guest_id == $guestIdInSession) $isOwner = true;
+        } elseif ($payment->restaurantOrder) {
+            $guest = $payment->restaurantOrder->guest;
+            if ($payment->restaurantOrder->guest_id == $guestIdInSession) $isOwner = true;
+        } elseif ($payment->packageOrder) { // <-- INI DIA KUNCI AGAR PAKET LOLOS
+            $guest = $payment->packageOrder->guest;
+            if ($payment->packageOrder->guest_id == $guestIdInSession) $isOwner = true;
         }
 
-        // Konfigurasi Midtrans (Pastikan Anda sudah menginstall package midtrans/midtrans-php)
+        // Keamanan: Jika bukan pemilik transaksi, usir.
+        if (!$isOwner) {
+            abort(403, 'Akses Ditangguhkan: Transaksi ini bukan milik Anda.');
+        }
+
+        // 3. Konfigurasi Midtrans
         \Midtrans\Config::$serverKey = config('midtrans.server_key');
         \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
         \Midtrans\Config::$isSanitized = true;
         \Midtrans\Config::$is3ds = true;
 
-        // Data transaksi untuk dikirim ke Midtrans
+        // Tentukan Label Prefix Order ID
+        $orderPrefix = 'PAY-';
+        if ($payment->booking) $orderPrefix = 'ROOM-';
+        elseif ($payment->restaurantOrder) $orderPrefix = 'RESTO-';
+        elseif ($payment->packageOrder) $orderPrefix = 'PKG-'; // Prefix khusus Paket
+
+        // 4. Data transaksi dinamis
         $params = [
             'transaction_details' => [
-                'order_id' => 'PAY-' . $payment->id . '-' . time(), // Format Order ID unik
-                'gross_amount' => $payment->amount,
+                'order_id' => $orderPrefix . $payment->id . '-' . time(),
+                'gross_amount' => (int) $payment->amount,
             ],
             'customer_details' => [
-                'first_name' => $payment->booking->guest->name ?? 'Tamu',
-                'email' => $payment->booking->guest->email ?? '',
-                'phone' => $payment->booking->guest->phone ?? '',
+                'first_name' => $guest->name ?? 'Guest',
+                'email' => $guest->email ?? '',
+                'phone' => $guest->phone ?? '',
             ],
         ];
 
-        // Minta Snap Token ke Midtrans
-        $snapToken = \Midtrans\Snap::getSnapToken($params);
+        // 5. Minta Snap Token
+        try {
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal terhubung ke penyedia pembayaran: ' . $e->getMessage());
+        }
 
-        // Lempar ke view pembayaran yang Anda buat (misal namanya payment.blade.php)
         return view('users.payment.index', compact('payment', 'snapToken'));
     }
 

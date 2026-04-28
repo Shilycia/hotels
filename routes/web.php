@@ -31,8 +31,14 @@ use App\Http\Controllers\Users\GuestPaymentController;
 Route::get('/', [PageController::class, 'index'])->name('home'); 
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
-Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show');
-Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('restaurant.index'); 
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+
+// KEMBALIKAN NAMA RUTE KAMAR:
+Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
+
+// TAMBAHKAN 2 RUTE MENU INI:
+Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('menus');
+Route::get('/restaurant/{id}', [PageController::class, 'menuDetail'])->name('menu.detail');
 
 // --- Otentikasi Tamu (Hanya untuk yang BELUM login) ---
 Route::middleware('guest.guest')->group(function () {
@@ -51,6 +57,12 @@ Route::middleware('guest.auth')->group(function () {
     Route::get('/profile', [GuestAuthController::class, 'profile'])->name('guest.profile');
     Route::put('/profile/update', [GuestAuthController::class, 'updateProfile'])->name('guest.profile.update');
     Route::get('/profile/edit', [PageController::class, 'editProfile'])->name('guest.profile.edit');
+
+    // --- Area Restoran & Keranjang ---
+    Route::post('/restaurant/cart/add', [PageController::class, 'addToRestaurantCart'])->name('restaurant.cart.add');
+    Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
+    Route::post('/checkout/restaurant/remove', [PageController::class, 'removeFromRestaurantCart'])->name('restaurant.cart.remove');
+    Route::post('/restaurant/order/store', [PageController::class, 'storeRestaurantOrder'])->name('restaurant.order.store');
     
     // Proses Reservasi & Pesanan
     Route::get('/checkout/room', [PageController::class, 'checkoutRoom'])->name('checkout.room');
@@ -58,7 +70,7 @@ Route::middleware('guest.auth')->group(function () {
     Route::post('/booking/store', [PageController::class, 'storeBooking'])->name('booking.store');
     Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
     Route::get('/package/{package}/customize', [PageController::class, 'customizePackage'])->name('package.customize');
-    
+    Route::post('/package/store', [PageController::class, 'storePackageOrder'])->name('package.store');    
 
     Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
     Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');

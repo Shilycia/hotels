@@ -147,17 +147,17 @@
                                                     <span class="text-muted" style="font-size:12px">No. Kamar: {{ $booking->room->room_number ?? '-' }}</span>
                                                 </td>
                                                 <td>
-                                                    {{-- Pakai Carbon::parse untuk mengubah string jadi objek tanggal --}}
-                                                    <span class="d-block" style="font-size:13px">
-                                                        <i class="fa fa-sign-in-alt text-primary me-1"></i> 
-                                                        {{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}
-                                                    </span>
-                                                    
-                                                    <span class="d-block" style="font-size:13px">
-                                                        <i class="fa fa-sign-out-alt text-danger me-1"></i> 
-                                                        {{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}
-                                                    </span>
-                                                </td>
+                                                {{-- Pakai Carbon::parse untuk mengubah string jadi objek tanggal --}}
+                                                <span class="d-block" style="font-size:13px">
+                                                    <i class="fa fa-sign-in-alt text-primary me-1"></i> 
+                                                    {{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}
+                                                </span>
+                                                
+                                                <span class="d-block" style="font-size:13px">
+                                                    <i class="fa fa-sign-out-alt text-danger me-1"></i> 
+                                                    {{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}
+                                                </span>
+                                            </td>
                                                 <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($booking->total_amount, 0, ',', '.') }}</td>
                                                 <td>
                                                     @if(optional($booking->payment)->payment_status == 'paid')
@@ -197,7 +197,7 @@
                                 <div class="text-center py-5">
                                     <i class="fa fa-hamburger text-muted mb-3" style="font-size:3rem;opacity:0.3"></i>
                                     <p class="text-muted mb-3">Anda belum pernah memesan makanan dari restoran kami.</p>
-                                    <a href="{{ route('restaurant.index') }}" class="btn btn-primary px-4">Pesan Sekarang</a>
+                                    <a href="{{ route('menus') }}" class="btn btn-primary px-4">Pesan Sekarang</a>
                                 </div>
                             @else
                                 <div class="table-responsive">
@@ -215,12 +215,12 @@
                                             @foreach($restaurantOrders as $order)
                                             <tr>
                                                 <td class="fw-bold text-muted" style="font-size:13px">#{{ str_pad($order->id, 6, '0', STR_PAD_LEFT) }}<br><small>{{ $order->created_at->format('d M Y, H:i') }}</small></td>
-                                                <td style="font-size:13px">
-                                                    @foreach($order->details as $detail)
-                                                        <div class="mb-1">· {{ $detail->quantity }}x {{ $detail->menu->name ?? 'Item' }}</div>
-                                                    @endforeach
+                                                <td style="font-size:13px; max-width: 220px; line-height: 1.6;">
+                                                    {{ $order->details->map(function($detail) {
+                                                        return $detail->quantity . 'x ' . ($detail->menu->name ?? 'Item');
+                                                    })->implode(', ') }}
                                                 </td>
-                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($order->total_price, 0, ',', '.') }}</td>
+                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                                                 <td>
                                                     @if($order->status == 'placed') <span class="badge bg-secondary">Diterima</span>
                                                     @elseif($order->status == 'preparing') <span class="badge bg-warning text-dark">Disiapkan</span>
