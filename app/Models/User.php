@@ -24,6 +24,6 @@ class User extends Authenticatable
 
     public function hasRole(string $roleSlug): bool
     {
-        return $this->roles()->where('slug', $roleSlug)->exists();
+        return $this->role !== null && $this->role->slug === $roleSlug;
     }
 }

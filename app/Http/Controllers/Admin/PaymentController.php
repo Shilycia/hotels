@@ -44,7 +44,8 @@ class PaymentController extends Controller
             }
         } elseif ($request->payment_status == 'failed') {
             if ($payment->booking_id) $payment->booking->update(['status' => 'cancelled']);
-            elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'completed']); 
+            // [K-04] FIX: Ganti 'completed' menjadi 'cancelled'
+            elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'cancelled']); 
             elseif ($payment->package_order_id) $payment->packageOrder->update(['status' => 'cancelled']);
         }
 
@@ -59,7 +60,9 @@ class PaymentController extends Controller
     
     public function webhookCallback(Request $request)
     {
-        $serverKey = env('MIDTRANS_SERVER_KEY');
+        // [K-08] FIX: Gunakan config() alih-alih env() agar aman saat config:cache
+        $serverKey = config('midtrans.server_key');
+        
         $hashed = hash("sha512", $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
         
         if ($hashed == $request->signature_key) {
@@ -88,7 +91,8 @@ class PaymentController extends Controller
                 $payment->update(['payment_status' => 'failed']);
                 
                 if ($payment->booking_id) $payment->booking->update(['status' => 'cancelled']);
-                elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'completed']);
+                // [K-04] FIX: Ganti 'completed' menjadi 'cancelled'
+                elseif ($payment->restaurant_order_id) $payment->restaurantOrder->update(['status' => 'cancelled']);
                 elseif ($payment->package_order_id) $payment->packageOrder->update(['status' => 'cancelled']);
             }
 

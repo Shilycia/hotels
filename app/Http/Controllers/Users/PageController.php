@@ -69,7 +69,7 @@ class PageController extends Controller
             ->whereDate('valid_until', '>=', now())
             ->where(function($query) {
                 $query->where('applicable_to', 'all')
-                      ->orWhere('applicable_to', 'room');
+                      ->orWhere('applicable_to', 'bookings'); 
             })
             ->get();
 
@@ -180,16 +180,26 @@ class PageController extends Controller
             'special_request' => 'nullable|string|max:500',
         ]);
 
-        // CEK KAMAR FISIK
-        $availableRoom = Room::where('room_type_id', $request->room_type_id)->first();
+        $checkInDate = Carbon::parse($request->check_in);
+        $checkOutDate = Carbon::parse($request->check_out);
+
+        // [K-10] FIX: LOGIKA ANTI DOUBLE BOOKING
+        // Cari kamar fisik yang tipenya sesuai DAN TIDAK ADA jadwal bentrok
+        $availableRoom = Room::where('room_type_id', $request->room_type_id)
+            ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
+                // Abaikan booking yang sudah dibatalkan atau selesai
+                $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
+                      // Rumus jadwal bentrok: Check-in lama < Check-out baru AND Check-out lama > Check-in baru
+                      ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
+                      ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
+            })
+            ->first();
+
         if (!$availableRoom) {
-            // INI YANG MEMBUAT TOMBOL ANDA TERDIAM SEBELUMNYA!
-            return back()->with('error', 'Mohon maaf, belum ada alokasi kamar fisik untuk tipe kamar ini di sistem hotel.');
+            return back()->with('error', 'Mohon maaf, kamar tipe ini sudah penuh untuk tanggal yang Anda pilih. Silakan cari tanggal atau tipe kamar lain.');
         }
 
         // HITUNG ULANG DI SERVER
-        $checkInDate = Carbon::parse($request->check_in);
-        $checkOutDate = Carbon::parse($request->check_out);
         $totalNights = $checkInDate->diffInDays($checkOutDate);
         $subtotal = $availableRoom->roomType->price * $totalNights;
 
@@ -214,7 +224,7 @@ class PageController extends Controller
         // SIMPAN KE DATABASE
         $booking = new Booking();
         $booking->guest_id = session('guest_id');
-        $booking->room_id = $availableRoom->id;
+        $booking->room_id = $availableRoom->id; // Kamar yang didapat dijamin kosong!
         $booking->check_in_date = $request->check_in;
         $booking->check_out_date = $request->check_out;
         $booking->total_nights = $totalNights;
@@ -230,7 +240,7 @@ class PageController extends Controller
         $payment->payment_method = 'midtrans';
         $payment->save();
 
-        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Reservasi berhasil dibuat! Silakan bayar.');
+        return redirect()->route('guest.payment.show', $payment->id)->with('success', 'Kamar berhasil diamankan! Silakan lakukan pembayaran.');
     }
 
     public function storePackageOrder(Request $request)
