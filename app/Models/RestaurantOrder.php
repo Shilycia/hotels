@@ -7,7 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class RestaurantOrder extends Model
 {
     protected $fillable = [
-        'guest_id', 'table_or_room', 'order_type', 'total_amount', 'notes', 'status'
+        'guest_id', 
+        'booking_id', 
+        'table_number', 
+        'order_type', 
+        'total_amount', 
+        'notes', 
+        'status'
     ];
 
     public function guest() { return $this->belongsTo(Guest::class); }

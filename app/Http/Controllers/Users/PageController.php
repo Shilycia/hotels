@@ -349,7 +349,6 @@ class PageController extends Controller
         // Buatkan Tagihan
         $payment = new Payment();
         $payment->package_order_id = $order->id; 
-        $payment->booking_id       = $booking->id; // Tautkan booking agar otomatis 'confirmed' saat dibayar
         $payment->amount           = $totalAmount;
         $payment->payment_status   = 'pending';
         $payment->payment_method   = 'midtrans';

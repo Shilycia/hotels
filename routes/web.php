@@ -27,51 +27,48 @@ use App\Http\Controllers\Users\GuestPaymentController;
 |--------------------------------------------------------------------------
 */
 
-// --- Akses Publik (Tanpa Login) ---
 Route::get('/', [PageController::class, 'index'])->name('home'); 
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
 Route::get('/contact', [PageController::class, 'contact'])->name('contact');
-
 Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
-
 Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('menus');
 Route::get('/restaurant/{id}', [PageController::class, 'menuDetail'])->name('menu.detail');
 
 // --- Otentikasi Tamu (Hanya untuk yang BELUM login) ---
-Route::middleware('guest.guest')->group(function () {
+Route::middleware(['guest.guest'])->group(function () {
     Route::get('/login', [GuestAuthController::class, 'showLoginForm'])->name('guest.login');
-    Route::post('/login', [GuestAuthController::class, 'login'])->name('guest.login.submit');
     Route::get('/register', [GuestAuthController::class, 'showRegisterForm'])->name('guest.register');
-    Route::post('/register', [GuestAuthController::class, 'register'])->name('guest.register.submit');
     Route::get('/forgot-password', [GuestAuthController::class, 'forgotPassword'])->name('guest.forgot');
+
+    // Keamanan: Proteksi Brute Force pada percobaan login/register
+    Route::middleware('throttle:5,1')->group(function () {
+        Route::post('/login', [GuestAuthController::class, 'login'])->name('guest.login.submit');
+        Route::post('/register', [GuestAuthController::class, 'register'])->name('guest.register.submit');
+    });
 });
 
 // --- Area Privat Tamu (Wajib Login Guest) ---
 Route::middleware('guest.auth')->group(function () { 
     Route::post('/logout', [GuestAuthController::class, 'logout'])->name('guest.logout');
-    
-    // Profil & Riwayat
     Route::get('/profile', [GuestAuthController::class, 'profile'])->name('guest.profile');
     Route::put('/profile/update', [GuestAuthController::class, 'updateProfile'])->name('guest.profile.update');
     Route::get('/profile/edit', [PageController::class, 'editProfile'])->name('guest.profile.edit');
 
-    // --- Area Restoran & Keranjang ---
+    // Area Restoran
     Route::post('/restaurant/cart/add', [PageController::class, 'addToRestaurantCart'])->name('restaurant.cart.add');
-    // [K-02] FIX: Mempertahankan satu saja rute checkout restaurant
     Route::get('/checkout/restaurant', [PageController::class, 'checkoutRestaurant'])->name('checkout.restaurant');
     Route::post('/checkout/restaurant/remove', [PageController::class, 'removeFromRestaurantCart'])->name('restaurant.cart.remove');
     Route::post('/restaurant/order/store', [PageController::class, 'storeRestaurantOrder'])->name('restaurant.order.store');
     
-    // Proses Reservasi Kamar & Paket
+    // Area Kamar & Paket
     Route::get('/checkout/room', [PageController::class, 'checkoutRoom'])->name('checkout.room');
     Route::post('/checkout/apply-voucher', [PageController::class, 'applyVoucher'])->name('voucher.apply'); 
     Route::post('/booking/store', [PageController::class, 'storeBooking'])->name('booking.store');
-    
     Route::get('/package/{package}/customize', [PageController::class, 'customizePackage'])->name('package.customize');
     Route::post('/package/store', [PageController::class, 'storePackageOrder'])->name('package.store');    
 
-    // Pembayaran
+    // Pembayaran & Invoice
     Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
     Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');
     Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
@@ -85,7 +82,7 @@ Route::middleware('guest.auth')->group(function () {
 */
 
 Route::get('/admin/login', [AdminAuth::class, 'showLoginForm'])->name('admin.login');
-Route::post('/admin/login', [AdminAuth::class, 'login']);
+Route::post('/admin/login', [AdminAuth::class, 'login'])->middleware('throttle:5,1');
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () { 
     Route::post('/logout', [AdminAuth::class, 'logout'])->name('logout');
@@ -94,11 +91,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('room-types', RoomTypeController::class); 
     Route::resource('rooms', RoomController::class); 
     Route::resource('bookings', BookingController::class);
-
     Route::resource('menus', MenuController::class);
     Route::resource('packages', PackageController::class); 
     Route::resource('orders', OrderController::class);
-
     Route::resource('discounts', DiscountController::class); 
     Route::resource('payments', PaymentController::class)->except(['create', 'store', 'edit', 'show']);
     Route::get('/reports', [DashboardController::class, 'reports'])->name('reports.index'); 
@@ -109,9 +104,5 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     });
 }); 
 
-/*
-|--------------------------------------------------------------------------
-| 3. WEBHOOK MIDTRANS
-|--------------------------------------------------------------------------
-*/
+// Webhook Midtrans (Satu Jalur Terpusat)
 Route::post('/webhook/midtrans/callback', [PaymentController::class, 'webhookCallback']);

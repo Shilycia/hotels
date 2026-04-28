@@ -130,6 +130,11 @@ class GuestAuthController extends Controller
         return redirect()->route('guest.profile')->with('success', 'Profil berhasil diperbarui!');
     }
 
+    public function forgotPassword()
+    {
+        return back()->with('error', 'Fitur Lupa Kata Sandi sedang dalam pengembangan. Silakan hubungi resepsionis.');
+    }
+
     public function logout(Request $request)
     {
         $request->session()->forget(['guest_id', 'guest_name', 'url.intended']);

@@ -23,7 +23,7 @@ class PaymentController extends Controller
     {
         $request->validate([
             'payment_status' => 'required|in:pending,paid,failed',
-            'payment_method' => 'required|in:cash,transfer,credit_card,e_wallet',
+            'payment_method' => 'required|in:cash,transfer,credit_card,e_wallet,midtrans',
         ]);
 
         $data = $request->only(['payment_status', 'payment_method']);
