@@ -72,7 +72,6 @@ Route::middleware('guest.auth')->group(function () {
     Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
     Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');
     Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
-    Route::get('/invoice/{payment}', [PageController::class, 'invoice'])->name('guest.invoice');
 });
 
 /*

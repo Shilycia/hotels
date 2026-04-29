@@ -113,11 +113,12 @@
 </div>
 @endsection
 
-{{-- [B-09] FIX: Tambahkan Script AJAX --}}
 @push('scripts')
 <script>
     document.getElementById('btn-apply-voucher').addEventListener('click', function() {
-        const code = document.getElementById('voucher_code_input').value;
+        const codeInput = document.getElementById('voucher_code_input');
+        const code = codeInput.value;
+        const btnApply = document.getElementById('btn-apply-voucher');
         const messageEl = document.getElementById('voucher-message');
         const voucherContainer = document.getElementById('voucher-discount-container');
         const voucherAmountEl = document.getElementById('voucher-discount-amount');
@@ -160,6 +161,12 @@
                         autoContainer.parentElement.style.opacity = '0.5';
                     }
                 }
+
+                // [Q-01] FIX: Kunci input dan nonaktifkan tombol setelah voucher berhasil diterapkan
+                codeInput.setAttribute('readonly', true);
+                btnApply.setAttribute('disabled', true);
+                btnApply.innerText = 'Diterapkan';
+                
             } else {
                 messageEl.innerHTML = '<span class="text-danger"><i class="fa fa-times-circle"></i> ' + data.message + '</span>';
                 voucherContainer.classList.add('d-none');
