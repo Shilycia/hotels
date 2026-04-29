@@ -88,21 +88,23 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('/logout', [AdminAuth::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard'); 
 
-    Route::resource('room-types', RoomTypeController::class); 
-    Route::resource('rooms', RoomController::class); 
-    Route::resource('bookings', BookingController::class);
-    Route::resource('menus', MenuController::class);
-    Route::resource('packages', PackageController::class); 
-    Route::resource('orders', OrderController::class);
-    Route::resource('discounts', DiscountController::class); 
+    Route::resource('room-types', RoomTypeController::class)->except(['create', 'edit', 'show']); 
+    Route::resource('rooms', RoomController::class)->except(['create', 'edit', 'show']); 
+    Route::resource('bookings', BookingController::class)->except(['create', 'edit', 'show']);
+    Route::resource('menus', MenuController::class)->except(['create', 'edit', 'show']);
+    Route::resource('packages', PackageController::class)->except(['create', 'edit', 'show']); 
+    Route::resource('orders', OrderController::class)->except(['create', 'edit', 'show']);
+    Route::resource('discounts', DiscountController::class)->except(['create', 'edit', 'show']); 
+    
+    // Rute Payment sudah benar dari awal (ditambah pengecualian 'store')
     Route::resource('payments', PaymentController::class)->except(['create', 'store', 'edit', 'show']);
     Route::get('/reports', [DashboardController::class, 'reports'])->name('reports.index'); 
 
     Route::middleware('role:super_admin')->group(function () {
-        Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class);
+        Route::resource('users', UserController::class)->except(['create', 'edit', 'show']);
+        Route::resource('roles', RoleController::class)->except(['create', 'edit', 'show']);
     });
-}); 
+});
 
 // Webhook Midtrans (Satu Jalur Terpusat)
 Route::post('/webhook/midtrans/callback', [PaymentController::class, 'webhookCallback']);

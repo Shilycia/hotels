@@ -118,7 +118,15 @@
                             {{ strtoupper(str_replace('_', ' ', $payment->payment_method ?? 'CASH')) }}
                         </span>
                     </td>
-                    <td style="font-weight:600;color:var(--ink)">Rp {{ number_format($payment->amount ?? 0, 0, ',', '.') }}</td>
+                    
+                    <td style="font-weight:600;color:var(--ink)">
+                        Rp {{ number_format($payment->amount ?? 0, 0, ',', '.') }}
+                        {{-- TAMBAHAN UX: Menampilkan nilai diskon jika ada --}}
+                        @if($payment->discount_applied > 0)
+                            <br><span style="font-size:11px; color:#dc3545; font-weight:500;">(Diskon: Rp {{ number_format($payment->discount_applied, 0, ',', '.') }})</span>
+                        @endif
+                    </td>
+                    
                     <td>
                         @if($payment->payment_status === 'paid')
                             <span class="badge badge-paid" style="background:#d1e7dd; color:#0f5132; font-weight:600;">Lunas</span>
@@ -133,7 +141,7 @@
                         <div style="display:flex;gap:5px;justify-content:center">
                             
                             <button class="btn btn-outline btn-sm" title="Verifikasi Manual"
-                                onclick="openEditModal('{{ $payment->id }}','{{ $payment->payment_status }}','{{ $payment->payment_method ?? `cash` }}')">
+                                onclick="openEditModal('{{ $payment->id }}','{{ $payment->payment_status }}','{{ $payment->payment_method ?? 'cash' }}')">
                                 <i class="fas fa-pen"></i> Update
                             </button>
 

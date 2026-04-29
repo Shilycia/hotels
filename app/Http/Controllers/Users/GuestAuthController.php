@@ -26,7 +26,9 @@ class GuestAuthController extends Controller
         $guest = Guest::where('email', $request->email)->first();
 
         if ($guest && Hash::check($request->password, $guest->password)) {
-            // Set session login tamu
+            
+            $request->session()->regenerate(); 
+
             session(['guest_id' => $guest->id]);
             session(['guest_name' => $guest->name]);
 

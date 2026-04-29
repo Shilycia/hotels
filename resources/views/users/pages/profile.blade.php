@@ -175,7 +175,7 @@
                                                 </td>
                                                 <td>
                                                     @if(optional($booking->payment)->payment_status != 'paid' && $booking->status != 'cancelled')
-                                                        <a href="#" class="btn btn-sm btn-primary" style="font-size:11px">Bayar</a>
+                                                        <a href="{{ route('guest.payment.show', $booking->payment->id) }}" class="btn btn-sm btn-primary" style="font-size:11px">Bayar</a>
                                                     @else
                                                         <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" disabled>Selesai</button>
                                                     @endif
