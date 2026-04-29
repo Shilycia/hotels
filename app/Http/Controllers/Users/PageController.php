@@ -410,6 +410,19 @@ class PageController extends Controller
         return view('users.pages.contact');
     }
 
+    public function sendContact(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+
+        return redirect()->route('contact')->with('success', 'Terima kasih, ' . $request->name . '. Pesan Anda telah kami terima. Tim kami akan segera menghubungi Anda kembali.');
+    }
+
     public function checkoutRoom(Request $request)
     {
         if (!session()->has('guest_id')) return redirect()->route('guest.login')->with('error', 'Silakan masuk terlebih dahulu.');

@@ -195,7 +195,7 @@
                     <label class="form-label">Tipe Layanan</label>
                     <select name="order_type" class="form-control" required>
                         <option value="dine_in">Dine In (Makan di Tempat)</option>
-                        <option value="in_room">In-Room (Antar ke Kamar)</option>
+                        <option value="room_service">Room Service (Antar ke Kamar)</option>
                         <option value="takeaway">Takeaway (Bungkus)</option>
                     </select>
                 </div>

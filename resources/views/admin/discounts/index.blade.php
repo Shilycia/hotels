@@ -58,6 +58,7 @@
                     <th>Kode / Tipe</th>
                     <th>Potongan</th>
                     <th>Berlaku Untuk</th>
+                    <th>Kuota (Terpakai/Max)</th> {{-- [R-03] FIX: Header Kolom Kuota --}}
                     <th>Periode Aktif</th>
                     <th>Status</th>
                     <th style="text-align:center">Aksi</th>
@@ -88,11 +89,21 @@
                             {{ str_replace('_', ' ', $disc->applicable_to) }}
                         </span>
                     </td>
+                    {{-- [R-03] FIX: Menampilkan Data Kuota --}}
+                    <td style="text-align:center; font-weight:600; color:var(--ink)">
+                        @if($disc->max_uses)
+                            <span style="color: {{ $disc->used_count >= $disc->max_uses ? '#dc3545' : 'var(--clay)' }}">
+                                {{ $disc->used_count }} / {{ $disc->max_uses }}
+                            </span>
+                        @else
+                            <span style="color:var(--ink3)">∞ (Tanpa Batas)</span>
+                        @endif
+                    </td>
                     <td style="font-size:12px;color:var(--ink3)">
                         {{ \Carbon\Carbon::parse($disc->valid_from)->format('d M') }} - {{ \Carbon\Carbon::parse($disc->valid_until)->format('d M y') }}
                     </td>
                     <td>
-                        @if($disc->is_active && $disc->valid_until >= now()->format('Y-m-d'))
+                        @if($disc->is_active && $disc->valid_until >= now()->format('Y-m-d') && (!$disc->max_uses || $disc->used_count < $disc->max_uses))
                             <span class="badge" style="background:#d1e7dd; color:#0f5132; font-weight:600;">Aktif</span>
                         @else
                             <span class="badge" style="background:#f8d7da; color:#842029; font-weight:600;">Nonaktif / Expired</span>
@@ -114,7 +125,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state" style="text-align: center; padding: 30px;">
                             <i class="fas fa-ticket-alt" style="font-size: 32px; color: var(--sand3); margin-bottom: 10px;"></i>
                             <p>Belum ada data promo/diskon.</p>
@@ -183,9 +194,16 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Minimal Transaksi (Rp)</label>
-                <input type="number" name="min_transaction_amount" class="form-control" value="0" min="0">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Minimal Transaksi (Rp)</label>
+                    <input type="number" name="min_transaction_amount" class="form-control" value="0" min="0">
+                </div>
+                {{-- [R-03] FIX: Menambahkan input Kuota --}}
+                <div class="form-group">
+                    <label class="form-label text-danger"><i class="fas fa-users"></i> Kuota Penggunaan (Maks)</label>
+                    <input type="number" name="max_uses" class="form-control" placeholder="Kosongkan = Tanpa Batas" min="1">
+                </div>
             </div>
 
             <div class="form-row">
@@ -198,6 +216,7 @@
                     <input type="date" name="valid_until" class="form-control" required>
                 </div>
             </div>
+            
             <div class="form-group">
                 <label class="form-label">Status</label>
                 <select name="is_active" class="form-control" required>
@@ -267,9 +286,16 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Minimal Transaksi (Rp)</label>
-                <input type="number" name="min_transaction_amount" id="edit_min" class="form-control" min="0">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Minimal Transaksi (Rp)</label>
+                    <input type="number" name="min_transaction_amount" id="edit_min" class="form-control" min="0">
+                </div>
+                {{-- [R-03] FIX: Menambahkan input Kuota di form Edit --}}
+                <div class="form-group">
+                    <label class="form-label text-danger"><i class="fas fa-users"></i> Kuota Penggunaan (Maks)</label>
+                    <input type="number" name="max_uses" id="edit_max_uses" class="form-control" placeholder="Kosongkan = Tanpa Batas" min="1">
+                </div>
             </div>
 
             <div class="form-row">
@@ -282,6 +308,7 @@
                     <input type="date" name="valid_until" id="edit_end" class="form-control" required>
                 </div>
             </div>
+            
             <div class="form-group">
                 <label class="form-label">Status</label>
                 <select name="is_active" id="edit_active" class="form-control" required>
@@ -306,12 +333,13 @@
 
     function openEditModal(disc) {
         document.getElementById('edit_name').value   = disc.name;
-        document.getElementById('edit_code').value   = disc.code || ''; // Set kode jika ada
+        document.getElementById('edit_code').value   = disc.code || ''; 
         document.getElementById('edit_type').value   = disc.discount_type;
         document.getElementById('edit_val').value    = disc.discount_value;
         document.getElementById('edit_app').value    = disc.applicable_to;
-        document.getElementById('edit_stackable').value = disc.is_stackable ? '1' : '0'; // Set stackable
+        document.getElementById('edit_stackable').value = disc.is_stackable ? '1' : '0'; 
         document.getElementById('edit_min').value    = disc.min_transaction_amount || 0;
+        document.getElementById('edit_max_uses').value = disc.max_uses || ''; // [R-03] FIX: Mengisi nilai kuota di form edit
         document.getElementById('edit_start').value  = disc.valid_from ? disc.valid_from.substring(0,10) : '';
         document.getElementById('edit_end').value    = disc.valid_until ? disc.valid_until.substring(0,10) : '';
         document.getElementById('edit_active').value = disc.is_active ? '1' : '0';
