@@ -118,4 +118,4 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 });
 
 // Webhook Midtrans (Satu Jalur Terpusat)
-Route::post('/webhook/midtrans/callback', [PaymentController::class, 'webhookCallback']);
+Route::post('/midtrans/callback', [PaymentController::class, 'webhookCallback']);

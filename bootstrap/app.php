@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+    
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
             if ($request->is('admin') || $request->is('admin/*')) {
                 return route('admin.login');
@@ -28,11 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->validateCsrfTokens(except: [
-            '/midtrans/callback', 
-            'midtrans/callback',
-            '/webhook/midtrans/callback', // Tambahan sesuai dokumen rancangan
-            'webhook/midtrans/callback'
+            '/midtrans/callback'
         ]);
+        
         
     })
     ->withExceptions(function (Exceptions $exceptions): void {

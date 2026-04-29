@@ -26,13 +26,11 @@ class Package extends Model
 
     public function paketItems()
     {
-        return $this->hasManyThrough(
+        return $this->belongsToMany(
             RestaurantMenu::class,
-            'paket_menu_items',
-            'paket_id',
-            'id',
-            'restaurant_menu_id',
-            'menu_id'
+            'paket_menu_items', 
+            'paket_id',         
+            'menu_id'           // <-- FIX: Ubah bagian ini menjadi menu_id
         )->withPivot('quantity');
     }
 }
