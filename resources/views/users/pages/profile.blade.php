@@ -42,7 +42,6 @@
             <div class="col-lg-3">
                 <div class="bg-white rounded shadow-sm border p-4 mb-4 text-center">
                     <div class="position-relative d-inline-block mb-3">
-                        {{-- Menggunakan photo_url yang sudah disesuaikan dengan database --}}
                         <img src="{{ $guest->photo_url ? asset('storage/' . $guest->photo_url) : asset('img/default-user.png') }}" 
                             class="rounded-circle border bg-light" 
                             style="width:120px; height:120px; object-fit:cover; border: 3px solid #FEA116 !important;">
@@ -134,8 +133,7 @@
                                                 <th>Tipe Kamar</th>
                                                 <th>Check In/Out</th>
                                                 <th>Total Tagihan</th>
-                                                <th>Pembayaran</th>
-                                                <th>Status</th>
+                                                <th>Status Kamar</th>
                                                 <th>Aksi</th>
                                             </tr>
                                         </thead>
@@ -147,23 +145,21 @@
                                                     <span class="text-muted" style="font-size:12px">No. Kamar: {{ $booking->room->room_number ?? '-' }}</span>
                                                 </td>
                                                 <td>
-                                                {{-- Pakai Carbon::parse untuk mengubah string jadi objek tanggal --}}
-                                                <span class="d-block" style="font-size:13px">
-                                                    <i class="fa fa-sign-in-alt text-primary me-1"></i> 
-                                                    {{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}
-                                                </span>
-                                                
-                                                <span class="d-block" style="font-size:13px">
-                                                    <i class="fa fa-sign-out-alt text-danger me-1"></i> 
-                                                    {{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}
-                                                </span>
-                                            </td>
-                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($booking->total_amount, 0, ',', '.') }}</td>
-                                                <td>
+                                                    <span class="d-block" style="font-size:13px">
+                                                        <i class="fa fa-sign-in-alt text-primary me-1"></i> 
+                                                        {{ \Carbon\Carbon::parse($booking->check_in_date)->format('d M Y') }}
+                                                    </span>
+                                                    <span class="d-block" style="font-size:13px">
+                                                        <i class="fa fa-sign-out-alt text-danger me-1"></i> 
+                                                        {{ \Carbon\Carbon::parse($booking->check_out_date)->format('d M Y') }}
+                                                    </span>
+                                                </td>
+                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">
+                                                    Rp {{ number_format($booking->total_amount, 0, ',', '.') }}<br>
                                                     @if(optional($booking->payment)->payment_status == 'paid')
-                                                        <span class="badge bg-success">Lunas</span>
+                                                        <span class="badge bg-success" style="font-size: 10px;">Lunas</span>
                                                     @else
-                                                        <span class="badge bg-warning text-dark">Belum Lunas</span>
+                                                        <span class="badge bg-warning text-dark" style="font-size: 10px;">Belum Lunas</span>
                                                     @endif
                                                 </td>
                                                 <td>
@@ -174,8 +170,11 @@
                                                     @else <span class="badge bg-danger">Dibatalkan</span> @endif
                                                 </td>
                                                 <td>
-                                                    @if(optional($booking->payment)->payment_status != 'paid' && $booking->status != 'cancelled')
+                                                    {{-- [N-06] FIX: Mencegah crash jika data payment null --}}
+                                                    @if($booking->payment && $booking->payment->payment_status != 'paid' && $booking->status != 'cancelled')
                                                         <a href="{{ route('guest.payment.show', $booking->payment->id) }}" class="btn btn-sm btn-primary" style="font-size:11px">Bayar</a>
+                                                    @elseif(!$booking->payment && $booking->status != 'cancelled')
+                                                        <button class="btn btn-sm btn-outline-warning" style="font-size:11px" disabled>Tagihan Proses</button>
                                                     @else
                                                         <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" disabled>Selesai</button>
                                                     @endif
@@ -222,10 +221,12 @@
                                                 </td>
                                                 <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                                                 <td>
-                                                    @if($order->status == 'placed') <span class="badge bg-secondary">Diterima</span>
-                                                    @elseif($order->status == 'preparing') <span class="badge bg-warning text-dark">Disiapkan</span>
-                                                    @elseif($order->status == 'on_the_way') <span class="badge bg-info text-dark">Diantar</span>
-                                                    @elseif($order->status == 'delivered' || $order->status == 'completed') <span class="badge bg-success">Selesai</span>
+                                                    {{-- [B-08] FIX: Menggunakan ENUM valid dari database --}}
+                                                    @if($order->status == 'pending') <span class="badge bg-secondary">Menunggu</span>
+                                                    @elseif($order->status == 'preparing') <span class="badge bg-warning text-dark">Disiapkan Dapur</span>
+                                                    @elseif($order->status == 'served') <span class="badge bg-info text-dark">Dihidangkan</span>
+                                                    @elseif($order->status == 'completed') <span class="badge bg-success">Selesai</span>
+                                                    @elseif($order->status == 'cancelled') <span class="badge bg-danger">Batal</span>
                                                     @else <span class="badge bg-dark">{{ ucfirst($order->status) }}</span> @endif
                                                 </td>
                                                 <td>
@@ -233,6 +234,9 @@
                                                         <span class="badge bg-success">Lunas</span>
                                                     @elseif(optional($order->payment)->payment_method == 'charge_to_room')
                                                         <span class="badge bg-info text-dark">Tagih ke Kamar</span>
+                                                    @elseif($order->payment && $order->payment->payment_status != 'paid' && $order->status != 'cancelled')
+                                                        {{-- TAMBAHAN UX: Beri tombol bayar jika belum lunas --}}
+                                                        <a href="{{ route('guest.payment.show', $order->payment->id) }}" class="btn btn-sm btn-primary" style="font-size:11px">Bayar</a>
                                                     @else
                                                         <span class="badge bg-warning text-dark">Belum Lunas</span>
                                                     @endif
@@ -260,7 +264,6 @@
                 <h5 class="modal-title fw-bold" id="editProfileModalLabel"><i class="fa fa-user-edit text-primary me-2"></i>Edit Profil Saya</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            {{-- PERHATIKAN: enctype="multipart/form-data" sangat penting untuk upload file --}}
             <form action="{{ route('guest.profile.update') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')

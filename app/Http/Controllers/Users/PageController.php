@@ -470,14 +470,53 @@ class PageController extends Controller
     {
         $guestId = session('guest_id');
         $isOwner = false;
+        $guestName = 'Guest';
 
-        if ($payment->booking && $payment->booking->guest_id == $guestId) $isOwner = true;
-        if ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestId) $isOwner = true;
-        if ($payment->packageOrder && $payment->packageOrder->guest_id == $guestId) $isOwner = true;
+        if ($payment->booking && $payment->booking->guest_id == $guestId) {
+            $isOwner = true;
+            $guestName = $payment->booking->guest->name ?? 'Guest';
+        }
+        if ($payment->restaurantOrder && $payment->restaurantOrder->guest_id == $guestId) {
+            $isOwner = true;
+            $guestName = $payment->restaurantOrder->guest->name ?? 'Guest';
+        }
+        if ($payment->packageOrder && $payment->packageOrder->guest_id == $guestId) {
+            $isOwner = true;
+            $guestName = $payment->packageOrder->guest->name ?? 'Guest';
+        }
 
         if (!$isOwner) abort(403, 'Akses ditolak.');
 
-        return view('users.pages.invoice', compact('payment'));
+        // [N-03] FIX: Meng-generate Snap Token agar tombol "Bayar Sekarang" berfungsi
+        \Midtrans\Config::$serverKey = config('midtrans.server_key');
+        \Midtrans\Config::$isProduction = config('midtrans.is_production', false);
+        \Midtrans\Config::$isSanitized = true;
+        \Midtrans\Config::$is3ds = true;
+
+        $snapToken = null;
+        if ($payment->payment_status == 'pending') {
+            // Gunakan order ID yang sudah di-generate sebelumnya
+            $orderId = $payment->midtrans_order_id;
+            
+            if ($orderId) {
+                $params = [
+                    'transaction_details' => [
+                        'order_id' => $orderId,
+                        'gross_amount' => (int) $payment->amount,
+                    ],
+                    'customer_details' => [
+                        'first_name' => $guestName,
+                    ]
+                ];
+                try {
+                    $snapToken = \Midtrans\Snap::getSnapToken($params);
+                } catch (\Exception $e) {
+                    // Biarkan null jika gagal terhubung
+                }
+            }
+        }
+
+        return view('users.pages.invoice', compact('payment', 'snapToken'));
     }
 
     public function editProfile()

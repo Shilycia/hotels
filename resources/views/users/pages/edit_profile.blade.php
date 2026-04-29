@@ -1,4 +1,7 @@
-@extends('layouts.app') @section('content')
+{{-- [N-01] FIX: Menggunakan path layout yang benar untuk halaman tamu --}}
+@extends('users.layouts.app') 
+
+@section('content')
 <div class="container mt-5">
     <h2>Edit Profil</h2>
     @if(session('error')) <div class="alert alert-danger">{{ session('error') }}</div> @endif
