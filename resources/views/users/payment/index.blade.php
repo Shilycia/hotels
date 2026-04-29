@@ -26,11 +26,13 @@
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Guest Name</span>
-                            <span class="fw-bold text-dark">{{ $payment->booking->guest->name ?? 'Tamu Hotel Neo' }}</span>
+                            {{-- [B-07] FIX: Menampilkan nama tamu dari semua jenis pesanan --}}
+                            <span class="fw-bold text-dark">{{ $payment->booking->guest->name ?? $payment->restaurantOrder->guest->name ?? $payment->packageOrder->guest->name ?? 'Tamu Hotel Neo' }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Type</span>
-                            <span class="fw-bold text-dark">{{ $payment->booking_id ? 'Room Booking' : 'Restaurant Order' }}</span>
+                            {{-- [B-06] FIX: Menambahkan label khusus untuk Package Order --}}
+                            <span class="fw-bold text-dark">{{ $payment->booking_id ? 'Room Booking' : ($payment->restaurant_order_id ? 'Restaurant Order' : 'Package Order') }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Status</span>

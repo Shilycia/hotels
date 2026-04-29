@@ -87,7 +87,13 @@
                             {{ ucfirst(str_replace('_', ' ', $bs)) }}
                         </span>
                     </td>
-                    <td style="font-weight:500;color:var(--ink)">Rp {{ number_format($booking->total_amount ?? 0, 0, ',', '.') }}</td>
+                    <td style="font-weight:500;color:var(--ink)">
+                        Rp {{ number_format($booking->total_amount ?? 0, 0, ',', '.') }}
+                        {{-- [B-10] FIX: Beri label jika ini adalah Shadow Booking (Rp 0 + ada tulisan Paket) --}}
+                        @if($booking->total_amount == 0 && Str::contains($booking->special_request, 'Tamu Pemesan Paket'))
+                            <br><span class="badge" style="background:#e9ecef; color:#495057; font-size:10px; margin-top:4px;">Shadow Booking (Paket)</span>
+                        @endif
+                    </td>
                     <td style="text-align:center">
                         <div style="display:flex;gap:5px;justify-content:center">
                             <button class="btn btn-outline btn-sm" onclick="openEditModal({{ json_encode($booking) }})">

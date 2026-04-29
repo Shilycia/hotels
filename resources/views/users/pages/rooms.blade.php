@@ -85,6 +85,7 @@
                 <div class="room-item shadow rounded overflow-hidden bg-white h-100 d-flex flex-column">
                     <div class="position-relative">
                         <img class="img-fluid w-100" 
+                             {{-- [B-25] FIX: Kolom foto ada di tabel room_types, bukan rooms --}}
                              src="{{ $room->foto ? asset('storage/' . $room->foto) : asset('img/room-1.jpg') }}" 
                              alt="{{ $room->name }}" style="height: 250px; object-fit: cover;">
                         <small class="position-absolute start-0 top-100 translate-middle-y bg-primary text-white rounded py-1 px-3 ms-4 fw-bold shadow-sm">
