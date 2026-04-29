@@ -19,6 +19,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB; // Ditambahkan untuk fungsi Transaction & Locking
+use Illuminate\Support\Str;
 
 class PageController extends Controller
 {
@@ -223,36 +224,37 @@ class PageController extends Controller
 
         $checkInDate = Carbon::parse($request->check_in);
         $checkOutDate = Carbon::parse($request->check_out);
-
-        $availableRoom = Room::where('room_type_id', $request->room_type_id)
-            ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
-                $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
-                      ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
-                      ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
-            })
-            ->first();
-
-        if (!$availableRoom) {
-            return back()->with('error', 'Mohon maaf, kamar tipe ini sudah penuh untuk tanggal yang Anda pilih.');
-        }
-
         $totalNights = $checkInDate->diffInDays($checkOutDate);
-        $subtotal = $availableRoom->roomType->price * $totalNights;
-
-        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->get();
-        $autoDiscountAmount = 0;
-        foreach($autoDiscounts as $d) {
-            $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
-        }
 
         try {
-            // [W-03] FIX: Mulai DB Transaction untuk mencegah Race Condition (Double-Claim)
-            $payment = DB::transaction(function () use ($request, $availableRoom, $checkInDate, $checkOutDate, $totalNights, $subtotal, $autoDiscountAmount) {
+            $payment = DB::transaction(function () use ($request, $checkInDate, $checkOutDate, $totalNights) {
+                
+                // [WARN-01] FIX: Pindahkan pencarian kamar ke DALAM transaksi dan gunakan lockForUpdate()
+                $availableRoom = Room::where('room_type_id', $request->room_type_id)
+                    ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
+                        $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
+                              ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
+                              ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
+                    })
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$availableRoom) {
+                    throw new \Exception('Mohon maaf, kamar tipe ini sudah penuh untuk tanggal yang Anda pilih.');
+                }
+
+                $subtotal = $availableRoom->roomType->price * $totalNights;
+
+                $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'bookings'])->get();
+                $autoDiscountAmount = 0;
+                foreach($autoDiscounts as $d) {
+                    $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
+                }
+
                 $voucherAmount = 0;
                 $usedVoucher = null;
 
                 if ($request->filled('voucher_code')) {
-                    // lockForUpdate() akan mengunci baris diskon ini sampai transaksi selesai
                     $voucher = Discount::where('code', $request->voucher_code)
                                 ->where('is_active', true)
                                 ->whereDate('valid_until', '>=', now())
@@ -264,6 +266,11 @@ class PageController extends Controller
                         if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
                             throw new \Exception('Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
                         }
+                        // [WARN-03] FIX: Validasi min_transaction_amount di level backend!
+                        if ($voucher->min_transaction_amount && $subtotal < $voucher->min_transaction_amount) {
+                            throw new \Exception('Pesanan gagal: Minimal transaksi untuk menggunakan voucher ini belum terpenuhi.');
+                        }
+                        
                         $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
                         $usedVoucher = $voucher;
                     }
@@ -293,9 +300,11 @@ class PageController extends Controller
                 $payment = new Payment();
                 $payment->booking_id = $booking->id;
                 $payment->amount = $booking->total_amount;
-                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->discount_applied = $totalDiscountApplied; 
                 $payment->payment_status = 'pending';
                 $payment->payment_method = 'midtrans';
+                // [WARN-05] FIX: Generate Order ID sejak dini
+                $payment->midtrans_order_id = 'NEO-' . time() . '-' . Str::random(5);
                 $payment->save();
 
                 return $payment;
@@ -309,10 +318,13 @@ class PageController extends Controller
 
     public function storePackageOrder(Request $request)
     {
+        // [WARN-04] FIX: Tambahkan validasi mendalam untuk extra_menus
         $request->validate([
             'package_id'      => 'required|exists:packages,id',
             'check_in'        => 'required|date',
             'check_out'       => 'required|date|after:check_in',
+            'extra_menus'     => 'nullable|array',
+            'extra_menus.*'   => 'integer|exists:restaurant_menus,id',
         ]);
 
         $package = Package::with('roomType')->findOrFail($request->package_id);
@@ -320,38 +332,41 @@ class PageController extends Controller
         $checkInDate = Carbon::parse($request->check_in);
         $checkOutDate = Carbon::parse($request->check_out);
 
-        $availableRoom = Room::where('room_type_id', $package->room_type_id)
-            ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
-                $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
-                      ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
-                      ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
-            })
-            ->first();
-
-        if (!$availableRoom) return back()->with('error', 'Kuota kamar untuk paket ini sudah penuh pada tanggal tersebut.');
-
-        $subtotal = $package->total_price;
-
-        if ($request->has('extra_menus')) {
-            $extraMenus = RestaurantMenu::whereIn('id', $request->extra_menus)->get();
-            foreach ($extraMenus as $menu) {
-                $subtotal += $menu->price; 
-            }
-        }
-
-        // [W-01] FIX: Kalkulasi Diskon Otomatis untuk Paket
-        $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'package_orders'])->get();
-        $autoDiscountAmount = 0;
-        foreach($autoDiscounts as $d) {
-            $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
-        }
-
         try {
-            $payment = DB::transaction(function () use ($request, $package, $availableRoom, $checkInDate, $checkOutDate, $subtotal, $autoDiscountAmount) {
+            $payment = DB::transaction(function () use ($request, $package, $checkInDate, $checkOutDate) {
+                
+                // [WARN-01] FIX: Pindahkan pencarian kamar ke DALAM transaksi dan gunakan lockForUpdate()
+                $availableRoom = Room::where('room_type_id', $package->room_type_id)
+                    ->whereDoesntHave('bookings', function ($query) use ($checkInDate, $checkOutDate) {
+                        $query->whereIn('status', ['pending', 'confirmed', 'checked_in'])
+                              ->where('check_in_date', '<', $checkOutDate->format('Y-m-d'))
+                              ->where('check_out_date', '>', $checkInDate->format('Y-m-d'));
+                    })
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$availableRoom) {
+                    throw new \Exception('Kuota kamar untuk paket ini sudah penuh pada tanggal tersebut.');
+                }
+
+                $subtotal = $package->total_price;
+
+                if ($request->has('extra_menus')) {
+                    $extraMenus = RestaurantMenu::whereIn('id', $request->extra_menus)->get();
+                    foreach ($extraMenus as $menu) {
+                        $subtotal += $menu->price; 
+                    }
+                }
+
+                $autoDiscounts = Discount::whereNull('code')->where('is_active', true)->whereDate('valid_until', '>=', now())->whereIn('applicable_to', ['all', 'package_orders'])->get();
+                $autoDiscountAmount = 0;
+                foreach($autoDiscounts as $d) {
+                    $autoDiscountAmount += ($d->discount_type == 'percentage') ? ($subtotal * $d->discount_value / 100) : $d->discount_value;
+                }
+
                 $voucherAmount = 0;
                 $usedVoucher = null;
 
-                // [W-01] FIX: Fitur Voucher Manual untuk Paket
                 if ($request->filled('voucher_code')) {
                     $voucher = Discount::where('code', $request->voucher_code)
                                 ->where('is_active', true)
@@ -364,6 +379,11 @@ class PageController extends Controller
                         if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
                             throw new \Exception('Pesanan gagal: Voucher promo yang Anda gunakan sudah kehabisan kuota.');
                         }
+                        // [WARN-03] FIX: Validasi min_transaction_amount di level backend!
+                        if ($voucher->min_transaction_amount && $subtotal < $voucher->min_transaction_amount) {
+                            throw new \Exception('Pesanan gagal: Minimal transaksi untuk voucher ini belum terpenuhi.');
+                        }
+                        
                         $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
                         $usedVoucher = $voucher;
                     }
@@ -414,9 +434,11 @@ class PageController extends Controller
                 $payment = new Payment();
                 $payment->package_order_id = $order->id; 
                 $payment->amount           = $order->total_amount;
-                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->discount_applied = $totalDiscountApplied; 
                 $payment->payment_status   = 'pending';
                 $payment->payment_method   = 'midtrans';
+                // [WARN-05] FIX: Generate Order ID sejak dini
+                $payment->midtrans_order_id = 'NEO-' . time() . '-' . Str::random(5);
                 $payment->save();
 
                 return $payment;
@@ -659,6 +681,11 @@ class PageController extends Controller
                         if ($voucher->max_uses && $voucher->used_count >= $voucher->max_uses) {
                             throw new \Exception('Pesanan gagal: Voucher promo sudah kehabisan kuota.');
                         }
+                        // [WARN-03] FIX: Validasi min_transaction_amount
+                        if ($voucher->min_transaction_amount && $subtotal < $voucher->min_transaction_amount) {
+                            throw new \Exception('Pesanan gagal: Minimal transaksi untuk voucher ini belum terpenuhi.');
+                        }
+
                         $voucherAmount = ($voucher->discount_type == 'percentage') ? ($subtotal * $voucher->discount_value / 100) : $voucher->discount_value;
                         $usedVoucher = $voucher;
                     }
@@ -676,6 +703,7 @@ class PageController extends Controller
                 $order->guest_id = session('guest_id');
                 $order->booking_id = ($request->order_type == 'room_service') ? $activeBooking->id : null;
                 $order->order_type = $request->order_type;
+                // Pastikan kolom ini diisi dengan benar berdasarkan model Anda (bisa table_number atau table_or_room)
                 $order->table_number = ($request->order_type == 'dine_in') ? $request->table_number : null;
                 $order->total_amount = max(0, $finalTotal);
                 $order->status = 'pending';
@@ -697,9 +725,11 @@ class PageController extends Controller
                 $payment = new Payment();
                 $payment->restaurant_order_id = $order->id; 
                 $payment->amount = $order->total_amount;
-                $payment->discount_applied = $totalDiscountApplied; // [W-02] FIX
+                $payment->discount_applied = $totalDiscountApplied; 
                 $payment->payment_status = 'pending';
                 $payment->payment_method = 'midtrans';
+                // [WARN-05] FIX: Generate Order ID sejak dini
+                $payment->midtrans_order_id = 'NEO-' . time() . '-' . Str::random(5);
                 $payment->save();
 
                 return $payment;

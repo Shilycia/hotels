@@ -30,8 +30,16 @@ use App\Http\Controllers\Users\GuestPaymentController;
 Route::get('/', [PageController::class, 'index'])->name('home'); 
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/rooms', [PageController::class, 'roomCatalog'])->name('rooms.index');
-Route::post('/contact', [PageController::class, 'sendContact'])->name('contact.send');
 Route::get('/rooms/{id}', [PageController::class, 'roomDetail'])->name('rooms.show'); 
+
+// [BUG-01 & MISS-03] FIX: Menambahkan route GET contact agar bisa diakses
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::post('/contact', [PageController::class, 'sendContact'])->name('contact.send');
+
+// [BUG-02 & BUG-04] FIX: Menambahkan route packages index dan package show
+Route::get('/packages', [PageController::class, 'packagesIndex'])->name('packages.index');
+Route::get('/packages/{package}', [PageController::class, 'packageShow'])->name('package.show');
+
 Route::get('/restaurant', [PageController::class, 'menuCatalog'])->name('menus');
 Route::get('/restaurant/{id}', [PageController::class, 'menuDetail'])->name('menu.detail');
 
@@ -71,7 +79,11 @@ Route::middleware('guest.auth')->group(function () {
     // Pembayaran & Invoice
     Route::get('/payment/{id}', [GuestPaymentController::class, 'showPayment'])->name('guest.payment.show');
     Route::post('/payment/{id}/status', [GuestPaymentController::class, 'updateStatus'])->name('guest.pay.status');
-    Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
+    
+    // MISS-01 FIX: Route payment.process dibiarkan sementara atau dihapus, 
+    // karena Anda menggunakan fungsi showPayment dan updateStatus yang sudah sempurna. 
+    // Jika tidak digunakan, amannya biarkan saja / hapus.
+    // Route::post('/payment/process', [GuestPaymentController::class, 'processPayment'])->name('payment.process');
 });
 
 /*

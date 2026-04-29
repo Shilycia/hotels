@@ -22,9 +22,10 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
+        // [BUG-03] FIX: Mengganti in_room menjadi room_service agar sesuai dengan enum di database
         $request->validate([
             'guest_id' => 'required|exists:guests,id',
-            'order_type' => 'required|in:dine_in,takeaway,in_room',
+            'order_type' => 'required|in:dine_in,takeaway,room_service',
             'table_or_room' => 'nullable|string|max:20',
             'notes' => 'nullable|string',
             'menu_id' => 'required|array|min:1',
@@ -52,7 +53,8 @@ class OrderController extends Controller
         $order = RestaurantOrder::create([
             'guest_id' => $request->guest_id,
             'order_type' => $request->order_type,
-            'table_or_room' => $request->table_or_room,
+            // [BUG-03] FIX: Kolom aslinya di database bernama table_number
+            'table_number' => $request->table_or_room,
             'notes' => $request->notes,
             'total_amount' => $totalAmount,
             'status' => 'pending', 
