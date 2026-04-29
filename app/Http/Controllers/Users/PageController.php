@@ -30,12 +30,37 @@ class PageController extends Controller
 
         $featuredRooms = RoomType::limit(3)->get();
         $featuredMenus = RestaurantMenu::where('is_available', true)->limit(4)->get();
-        $packages = Package::with('roomType')->where('is_active', true)->limit(3)->get();
+        $packages = Package::with(['roomType', 'restaurantMenu', 'paketItems'])->where('is_active', true)->limit(3)->get();
         $staffs = User::with('role')->limit(4)->get();
         
         return view('users.pages.home', compact(
             'activeDiscounts', 'featuredRooms', 'featuredMenus', 'packages', 'staffs'
         ));
+    }
+
+    public function packagesIndex()
+    {
+        $packages = Package::with(['roomType', 'restaurantMenu', 'paketItems'])
+            ->where('is_active', true)
+            ->latest()
+            ->paginate(9);
+        
+        return view('users.pages.packages', compact('packages'));
+    }
+
+    public function packageShow(Package $package)
+    {
+        if (!$package->is_active) {
+            abort(404);
+        }
+        
+        $package->load(['roomType', 'restaurantMenu', 'paketItems.menu']);
+        $activeDiscounts = Discount::where('is_active', true)
+            ->whereDate('valid_until', '>=', now())
+            ->whereIn('applicable_to', ['all', 'package_orders'])
+            ->get();
+
+        return view('users.pages.package-detail', compact('package', 'activeDiscounts'));
     }
 
     public function about()
@@ -177,14 +202,12 @@ class PageController extends Controller
         $guestId = session('guest_id');
         
         $guest = Guest::with([
-            'bookings.room.roomType', 
-            'restaurantOrders.details.menu'
+            'bookings.room.roomType.payment',
+            'restaurantOrders.details.menu.payment',
+            'packageOrders.package.restaurantMenu.paketItems'
         ])->findOrFail($guestId);
 
-        $bookings = $guest->bookings;
-        $restaurantOrders = $guest->restaurantOrders;
-
-        return view('users.pages.profile', compact('guest', 'bookings', 'restaurantOrders'));
+        return view('users.pages.profile', compact('guest'));
     }
 
     public function storeBooking(Request $request)

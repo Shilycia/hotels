@@ -11,7 +11,7 @@ class RestaurantMenuSeeder extends Seeder
     {
         RestaurantMenu::create([
             'name'         => 'Nasi Goreng Spesial Neo',
-            'category'     => 'Makanan',
+            'category'     => 'food',
             'price'        => 45000,
             'description'  => 'Nasi goreng autentik dengan topping udang windu, telur mata sapi, ayam suwir, dan kerupuk udang renyah.',
             'foto_url'     => 'img/food-1.jpg',
@@ -25,7 +25,7 @@ class RestaurantMenuSeeder extends Seeder
 
         RestaurantMenu::create([
             'name'         => 'Iced Lychee Tea',
-            'category'     => 'Minuman',
+            'category'     => 'drink',
             'price'        => 25000,
             'description'  => 'Teh premium yang diseduh dingin dengan sirup leci dan buah leci utuh yang manis dan segar.',
             'foto_url'     => 'img/drink-1.jpg',
@@ -39,7 +39,7 @@ class RestaurantMenuSeeder extends Seeder
 
         RestaurantMenu::create([
             'name'         => 'Chocolate Lava Cake',
-            'category'     => 'Dessert',
+            'category'     => 'dessert',
             'price'        => 35000,
             'description'  => 'Kue cokelat Belgia dengan bagian tengah yang lumer, disajikan hangat bersama es krim vanilla premium.',
             'foto_url'     => 'img/dessert-1.jpg',
@@ -53,7 +53,7 @@ class RestaurantMenuSeeder extends Seeder
 
         RestaurantMenu::create([
             'name'         => 'Truffle French Fries',
-            'category'     => 'Snack',
+            'category'     => 'snack',
             'price'        => 38000,
             'description'  => 'Kentang goreng potong tebal dengan aroma minyak truffle yang mewah dan taburan keju parmesan.',
             'foto_url'     => 'img/snack-1.jpg',

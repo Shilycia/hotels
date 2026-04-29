@@ -13,6 +13,7 @@ return new class extends Migration
         Schema::create('packages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('room_type_id')->nullable()->constrained('room_types')->onDelete('set null');
+            $table->foreignId('restaurant_menu_id')->nullable()->constrained('restaurant_menus')->onDelete('set null');
             $table->string('name');
             $table->text('description')->nullable();
             $table->decimal('total_price', 12, 2);
