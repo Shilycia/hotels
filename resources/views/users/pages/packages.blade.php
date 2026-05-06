@@ -17,7 +17,7 @@
         <div class="col-lg-4 col-md-6">
             <div class="card h-100 shadow-sm border-0 package-card">
                 <div class="position-relative">
-                    <img src="{{ $package->restaurantMenu->foto_url ?? asset('img/package-placeholder.jpg') }}" 
+                    <img src="{{ $package->restaurantMenu && $package->restaurantMenu->foto_url ? asset('storage/' . $package->restaurantMenu->foto_url) : asset('img/package-placeholder.jpg') }}" 
                          class="card-img-top" alt="{{ $package->name }}" style="height: 220px; object-fit: cover;">
                     @if($package->restaurantMenu && $package->restaurantMenu->can_bundle_with_room)
                     <span class="badge bg-gold position-absolute top-0 end-0 m-2">Bundle Room</span>
@@ -45,7 +45,7 @@
                     <div class="mt-auto">
                         <div class="d-flex justify-content-between align-items-end">
                             <span class="h4 mb-0 fw-bold text-gold">
-                                Rp {{ number_format($package->total_price, 0, ',', '.') }}
+                                Rp {{ number_format($package->total_price ?? 0, 0, ',', '.') }}
                             </span>
                             <a href="{{ route('packages.show', $package) }}" class="btn btn-gold btn-sm">
                                 View Details
@@ -65,5 +65,13 @@
         </div>
         @endforelse
     </div>
+
+    @if(method_exists($packages, 'links'))
+    <div class="row mt-5">
+        <div class="col-12 d-flex justify-content-center">
+            {{ $packages->links('pagination::bootstrap-5') }}
+        </div>
+    </div>
+    @endif
 </div>
 @endsection

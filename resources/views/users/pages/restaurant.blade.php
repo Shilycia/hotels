@@ -312,14 +312,6 @@
 
 @endsection
 
-@push('styles')
-<style>
-    .menu-card:hover { transform: translateY(-4px); }
-    .menu-card { box-shadow: 0 2px 12px rgba(0,0,0,.06) !important; }
-    .menu-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.1) !important; }
-</style>
-@endpush
-
 @push('scripts')
 <script>
     function openOrderModal(id, name, price) {
@@ -348,6 +340,19 @@
         let formattedTotal = new Intl.NumberFormat('id-ID').format(total);
         
         document.getElementById('modal_total_price').innerText = 'Rp ' + formattedTotal;
+    }
+
+    // TAMBAHKAN FUNGSI INI
+    function changeQty(change) {
+        let qtyInput = document.getElementById('modal_qty');
+        let currentQty = parseInt(qtyInput.value) || 1;
+        let newQty = currentQty + change;
+
+        // Pastikan quantity tidak kurang dari 1
+        if (newQty >= 1) {
+            qtyInput.value = newQty;
+            calculateTotal(); // Panggil fungsi ini agar harga total ikut berubah
+        }
     }
 </script>
 @endpush

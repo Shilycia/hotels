@@ -155,7 +155,16 @@
                                                     </span>
                                                 </td>
                                                 <td class="fw-bold" style="font-size:14px;color:var(--primary)">
-                                                    Rp {{ number_format($booking->total_amount, 0, ',', '.') }}<br>
+                                                    {{-- Cek apakah ada diskon yang diterapkan --}}
+                                                    @if(optional($booking->payment)->discount_applied > 0)
+                                                        <span class="text-decoration-line-through text-muted" style="font-size: 12px; color: #6c757d !important;">
+                                                            Rp {{ number_format($booking->total_amount + $booking->payment->discount_applied, 0, ',', '.') }}
+                                                        </span><br>
+                                                        <span>Rp {{ number_format($booking->total_amount, 0, ',', '.') }}</span><br>
+                                                    @else
+                                                        <span>Rp {{ number_format($booking->total_amount, 0, ',', '.') }}</span><br>
+                                                    @endif
+
                                                     @if(optional($booking->payment)->payment_status == 'paid')
                                                         <span class="badge bg-success" style="font-size: 10px;">Lunas</span>
                                                     @else
@@ -219,7 +228,17 @@
                                                         return $detail->quantity . 'x ' . ($detail->menu->name ?? 'Item');
                                                     })->implode(', ') }}
                                                 </td>
-                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                                                <td class="fw-bold" style="font-size:14px;color:var(--primary)">
+                                                    {{-- Cek apakah ada diskon yang diterapkan --}}
+                                                    @if(optional($order->payment)->discount_applied > 0)
+                                                        <span class="text-decoration-line-through text-muted" style="font-size: 12px; color: #6c757d !important;">
+                                                            Rp {{ number_format($order->total_amount + $order->payment->discount_applied, 0, ',', '.') }}
+                                                        </span><br>
+                                                        <span>Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span>
+                                                    @else
+                                                        <span>Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span>
+                                                    @endif
+                                                </td>
                                                 <td>
                                                     {{-- [B-08] FIX: Menggunakan ENUM valid dari database --}}
                                                     @if($order->status == 'pending') <span class="badge bg-secondary">Menunggu</span>

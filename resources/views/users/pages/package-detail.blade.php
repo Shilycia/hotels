@@ -16,7 +16,7 @@
             <div class="card border-0 shadow-lg">
                 <div class="row g-0">
                     <div class="col-md-5">
-                        <img src="{{ $package->restaurantMenu->foto_url ?? asset('img/package-placeholder.jpg') }}" 
+                        <img src="{{ $package->restaurantMenu && $package->restaurantMenu->foto_url ? asset('storage/' . $package->restaurantMenu->foto_url) : asset('img/package-placeholder.jpg') }}" 
                              class="img-fluid rounded-start h-100" style="object-fit: cover; height: 500px;" alt="{{ $package->name }}">
                     </div>
                     <div class="col-md-7">
@@ -24,7 +24,7 @@
                             <h1 class="card-title fw-bold mb-3 text-dark">{{ $package->name }}</h1>
                             <div class="mb-4">
                                 <span class="h3 fw-bold text-gold mb-2 d-block">
-                                    Rp {{ number_format($package->total_price, 0, ',', '.') }}
+                                    Rp {{ number_format($package->total_price ?? 0, 0, ',', '.') }}
                                 </span>
                                 @if($package->roomType)
                                 <span class="badge bg-light text-dark mb-2">
@@ -41,7 +41,7 @@
                                         @foreach($package->paketItems as $item)
                                         <li class="mb-2">
                                             <i class="fas fa-utensils text-success me-2"></i>
-                                            {{ $item->name }} (x{{ $item->pivot->quantity }})
+                                            {{ $item->name }} (x{{ optional($item->pivot)->quantity ?? 1 }})
                                         </li>
                                         @endforeach
                                     @else
@@ -67,7 +67,7 @@
             <div class="card sticky-top" style="top: 20px;">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Quick Booking</h5>
-                    <form action="{{ route('package.store') }}" method="GET" class="needs-validation" novalidate>
+                    <form action="{{ route('package.store') }}" method="POST" class="needs-validation" novalidate>
                         @csrf
                         <input type="hidden" name="package_id" value="{{ $package->id }}">
                         <div class="mb-3">
@@ -79,7 +79,7 @@
                             <input type="date" class="form-control" name="check_out" required>
                         </div>
                         <button type="submit" class="btn btn-outline-gold w-100 py-2">
-                            <i class="fas fa-calendar-check me-2"></i>Check Availability
+                            <i class="fas fa-calendar-check me-2"></i>Book Package
                         </button>
                     </form>
                 </div>
