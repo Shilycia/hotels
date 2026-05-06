@@ -162,21 +162,25 @@
         <a href="{{ route('admin.discounts.index') }}" class="nav-item {{ request()->routeIs('admin.discounts.*') ? 'active' : '' }}">
             <span class="nav-icon"><i class="fas fa-ticket-alt"></i></span> Promo Diskon
         </a>
+
+        {{-- PERBAIKAN: Hanya ditampilkan jika yang login adalah Super Admin --}}
+        @if(Auth::check() && Auth::user()->isSuperAdmin())
         <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
             <span class="nav-icon"><i class="fas fa-users"></i></span> Staf & Admin
         </a>
         <a href="{{ route('admin.roles.index') }}" class="nav-item {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
             <span class="nav-icon"><i class="fas fa-shield-halved"></i></span> Hak Akses
         </a>
+        @endif
 
         <div class="sidebar-footer">
             <div class="user-chip">
                 <div class="user-avatar">{{ Auth::check() ? strtoupper(substr(Auth::user()->name, 0, 1)) : 'A' }}</div>
                 <div>
+                    {{-- PERBAIKAN: Menghapus duplikasi div user-info-name --}}
                     <div class="user-info-name">{{ Auth::check() ? Auth::user()->name : 'Admin' }}</div>
-                    <div class="user-info-role">{{ Auth::check() ? Auth::user()->role->name : 'Super Admin' }}</div>
+                    <div class="user-info-role">{{ Auth::check() ? (optional(Auth::user()->role)->name ?? 'Staff') : 'Super Admin' }}</div>
                 </div>
-                {{-- Memperbaiki route logout menjadi admin.logout sesuai yang didefinisikan --}}
                 <form id="logout-form" action="{{ route('admin.logout') }}" method="POST" style="display:none;">@csrf</form>
                 <button onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="logout-btn" title="Logout">
                     <i class="fas fa-arrow-right-from-bracket"></i>

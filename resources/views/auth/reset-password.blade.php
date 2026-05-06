@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Masuk – {{ config('hotel.name', 'Hotel Neo') }}</title>
+    <title>Atur Ulang Kata Sandi – {{ config('hotel.name', 'Hotel Neo') }}</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('img/favicon.ico') }}">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,14 +35,8 @@
         .auth-headline { font-size:18px; font-weight:700; color:#fff; line-height:1.4; margin-bottom:10px; }
         .auth-desc { font-size:12.5px; color:rgba(255,255,255,.4); line-height:1.7; max-width:200px; }
         
-        .auth-features { margin-top:28px; list-style:none; padding:0; width:100%; }
-        .auth-features li { display:flex; align-items:center; gap:9px; font-size:12px; color:rgba(255,255,255,.45); padding:5px 0; }
-        .auth-features li::before { content:''; width:5px; height:5px; border-radius:50%; background:#c8a96e; opacity:.75; flex-shrink:0; }
-        
         /* Right Side */
         .auth-right { flex:1; background:#fff; padding:40px; display:flex; flex-direction:column; justify-content:center; }
-        .auth-back { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#6c757d; text-decoration:none; margin-bottom:28px; transition:color .15s; }
-        .auth-back:hover { color:#c8a96e; }
         .auth-section-tag { font-size:10.5px; font-weight:600; color:#c8a96e; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:6px; }
         .auth-title { font-size:26px; font-weight:700; color:#1a1f2e; margin-bottom:4px; }
         .auth-subtitle { font-size:13px; color:#6c757d; margin-bottom:28px; }
@@ -54,13 +48,10 @@
         .auth-input-group .ig-icon i { font-size:13px; color:#c8a96e; opacity:.8; }
         .auth-input-group input { flex:1; border:none; background:transparent; font-family:'Heebo',sans-serif; font-size:13.5px; color:#344767; padding:11px 10px 11px 0; outline:none; }
         .auth-input-group input::placeholder { color:#b2bec3; }
+        
         .auth-input-group .ig-toggle { width:40px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
         .auth-input-group .ig-toggle i { font-size:13px; color:#adb5bd; transition:color .15s; }
         .auth-input-group .ig-toggle:hover i { color:#c8a96e; }
-        
-        .auth-divider { display:flex; align-items:center; gap:12px; margin:12px 0 16px; }
-        .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#e9ecef; }
-        .auth-divider span { font-size:11.5px; color:#adb5bd; white-space:nowrap; }
         
         .btn-primary { background-color: #c8a96e; border-color: #c8a96e; }
         .btn-primary:hover { background-color: #b0925c; border-color: #b0925c; }
@@ -69,11 +60,6 @@
     </style>
 </head>
 <body>
-
-<div class="bg-dark py-2 px-4 d-none d-lg-flex align-items-center justify-content-between">
-    <small class="text-white-50"><i class="fa fa-phone-alt text-primary me-2" style="font-size:11px"></i>{{ config('hotel.phone', '+62 812 3456 7890') }}</small>
-    <small class="text-white-50"><i class="far fa-clock text-primary me-2" style="font-size:11px"></i>{{ config('hotel.hours', 'Layanan 24 Jam') }}</small>
-</div>
 
 <div class="auth-wrapper">
     <div class="auth-card">
@@ -84,30 +70,16 @@
                 <div class="auth-brand-name">{{ config('hotel.name', 'Hotel Neo') }}</div>
             </a>
             <div class="auth-illus">
-                <div class="auth-hotel-icon"><i class="fa fa-hotel"></i></div>
-                <div class="auth-headline">Selamat Datang di<br>{{ config('hotel.name', 'Hotel Neo') }}</div>
-                <div class="auth-desc">Gerbang Anda menuju pengalaman hotel mewah kelas dunia.</div>
-                <ul class="auth-features">
-                    <li>Pemesanan online mudah</li>
-                    <li>Kelola reservasi Anda</li>
-                    <li>Harga eksklusif member</li>
-                    <li>Dukungan layanan 24/7</li>
-                </ul>
+                <div class="auth-hotel-icon"><i class="fa fa-key"></i></div>
+                <div class="auth-headline">Amankan Akun Anda</div>
+                <div class="auth-desc">Gunakan kata sandi yang kuat untuk menjaga keamanan data reservasi Anda.</div>
             </div>
         </div>
 
         <div class="auth-right">
-            <a href="{{ route('home') }}" class="auth-back"><i class="fa fa-arrow-left"></i> Kembali ke Beranda</a>
-
-            <div class="auth-section-tag">Akses Member</div>
-            <div class="auth-title">Masuk</div>
-            <div class="auth-subtitle">Masukkan kredensial untuk mengakses akun Anda.</div>
-
-            @if(session('status'))
-                <div class="alert alert-success d-flex align-items-center gap-2 mb-3 py-2">
-                    <i class="fa fa-check-circle"></i> {{ session('status') }}
-                </div>
-            @endif
+            <div class="auth-section-tag">Keamanan</div>
+            <div class="auth-title">Atur Ulang Kata Sandi</div>
+            <div class="auth-subtitle">Silakan buat kata sandi baru untuk akun Anda.</div>
 
             @if($errors->any())
                 <div class="alert alert-danger d-flex align-items-center gap-2 mb-3 py-2">
@@ -115,67 +87,63 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('guest.login.submit') }}" id="loginForm">
+            {{-- Ganti route di bawah dengan route proses reset password Anda --}}
+            <form method="POST" action="{{ route('guest.password.update') }}" id="resetForm">
                 @csrf
+                
+                {{-- Token dikirim secara tersembunyi (diberikan dari controller ke view ini) --}}
+                <input type="hidden" name="token" value="{{ $token ?? '' }}">
 
                 <div class="mb-3">
                     <label class="auth-label" for="email">Alamat Email</label>
                     <div class="auth-input-group">
                         <div class="ig-icon"><i class="fa fa-envelope"></i></div>
-                        <input type="email" name="email" id="email" placeholder="email@contoh.com" value="{{ old('email') }}" required autocomplete="email">
+                        <input type="email" name="email" id="email" value="{{ request()->email ?? old('email') }}" readonly required>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="auth-label" for="password">Kata Sandi</label>
+                    <label class="auth-label" for="password">Kata Sandi Baru</label>
                     <div class="auth-input-group">
                         <div class="ig-icon"><i class="fa fa-lock"></i></div>
-                        <input type="password" name="password" id="password" placeholder="••••••••" required autocomplete="current-password">
-                        <div class="ig-toggle" id="togglePw"><i class="fa fa-eye" id="eyeIcon"></i></div>
+                        <input type="password" name="password" id="password" placeholder="Minimal 8 karakter" required autofocus autocomplete="new-password">
+                        <div class="ig-toggle" onclick="togglePw('password', 'eyeIcon1')"><i class="fa fa-eye" id="eyeIcon1"></i></div>
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
-                        <label class="form-check-label small text-muted" for="remember">Ingat saya</label>
+                <div class="mb-4">
+                    <label class="auth-label" for="password_confirmation">Konfirmasi Kata Sandi Baru</label>
+                    <div class="auth-input-group">
+                        <div class="ig-icon"><i class="fa fa-check-double"></i></div>
+                        <input type="password" name="password_confirmation" id="password_confirmation" placeholder="Ulangi kata sandi baru" required autocomplete="new-password">
+                        <div class="ig-toggle" onclick="togglePw('password_confirmation', 'eyeIcon2')"><i class="fa fa-eye" id="eyeIcon2"></i></div>
                     </div>
-                    {{-- Ganti '#' dengan route('guest.forgot') nanti jika sudah dibuat --}}
-                    <a href="{{ route('guest.forgot')}}" class="small text-decoration-none" style="color:#c8a96e; font-weight: 600;">Lupa kata sandi?</a>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold text-white" id="loginBtn">
-                    <span id="loginLabel"><i class="fa fa-sign-in-alt me-2"></i>Masuk</span>
-                    <span class="spinner-border spinner-border-sm d-none" id="loginSpinner" role="status"></span>
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold text-white mt-2" id="submitBtn">
+                    <span id="btnLabel"><i class="fa fa-save me-2"></i>Simpan Kata Sandi Baru</span>
+                    <span class="spinner-border spinner-border-sm d-none" id="btnSpinner" role="status"></span>
                 </button>
             </form>
-
-            <div class="auth-divider"><span>belum punya akun?</span></div>
-
-            <a href="{{ route('guest.register') }}" class="btn btn-outline-secondary w-100 py-2" style="font-size:13.5px">
-                <i class="fa fa-user-plus me-2"></i>Buat Akun Baru
-            </a>
         </div>
 
     </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    document.getElementById('togglePw').addEventListener('click', function () {
-        const pw = document.getElementById('password');
-        const icon = document.getElementById('eyeIcon');
+    function togglePw(inputId, iconId) {
+        const pw = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
         const show = pw.type === 'password';
         pw.type = show ? 'text' : 'password';
         icon.classList.toggle('fa-eye', !show);
         icon.classList.toggle('fa-eye-slash', show);
-    });
+    }
 
-    document.getElementById('loginForm').addEventListener('submit', function () {
-        document.getElementById('loginLabel').classList.add('d-none');
-        document.getElementById('loginSpinner').classList.remove('d-none');
-        document.getElementById('loginBtn').disabled = true;
+    document.getElementById('resetForm').addEventListener('submit', function () {
+        document.getElementById('btnLabel').classList.add('d-none');
+        document.getElementById('btnSpinner').classList.remove('d-none');
+        document.getElementById('submitBtn').disabled = true;
     });
 </script>
 </body>

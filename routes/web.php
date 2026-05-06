@@ -48,6 +48,9 @@ Route::middleware(['guest.guest'])->group(function () {
     Route::get('/login', [GuestAuthController::class, 'showLoginForm'])->name('guest.login');
     Route::get('/register', [GuestAuthController::class, 'showRegisterForm'])->name('guest.register');
     Route::get('/forgot-password', [GuestAuthController::class, 'forgotPassword'])->name('guest.forgot');
+    Route::post('/forgot-password', [GuestAuthController::class, 'sendResetLinkEmail'])->name('guest.password.email');
+    Route::get('/reset-password/{token}', [GuestAuthController::class, 'showResetForm'])->name('password.reset'); // Nama route ini penting jika pakai fitur bawaan
+    Route::post('/reset-password', [GuestAuthController::class, 'resetPassword'])->name('guest.password.update');
 
     // Keamanan: Proteksi Brute Force pada percobaan login/register
     Route::middleware('throttle:5,1')->group(function () {
@@ -95,7 +98,7 @@ Route::middleware('guest.auth')->group(function () {
 Route::get('/admin/login', [AdminAuth::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuth::class, 'login'])->middleware('throttle:5,1');
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () { 
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     Route::post('/logout', [AdminAuth::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard'); 
 
@@ -112,8 +115,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/reports', [DashboardController::class, 'reports'])->name('reports.index'); 
 
     Route::middleware('role:super_admin')->group(function () {
-        Route::resource('users', UserController::class)->except(['create', 'edit', 'show']);
-        Route::resource('roles', RoleController::class)->except(['create', 'edit', 'show']);
+        Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy']);
     });
 });
 

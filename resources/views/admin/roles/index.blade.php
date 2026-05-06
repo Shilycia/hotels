@@ -121,7 +121,7 @@
             <div class="form-group">
                 <label class="form-label">Slug Sistem</label>
                 <input type="text" name="slug" id="add_slug" class="form-control" placeholder="contoh: resepsionis" required>
-                <div class="form-hint">Huruf kecil dan tanda strip saja. Contoh: super-admin</div>
+                <div class="form-hint">Huruf kecil dan underscore saja. Contoh: super_admin, resepsionis</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeModal('modalAdd')">Batal</button>
@@ -186,8 +186,8 @@
 
     function generateSlug(text) {
         return text.toString().toLowerCase()
-            .replace(/\s+/g, '-').replace(/[^\w\-]+/g, '')
-            .replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+            .replace(/\s+/g, '_').replace(/[^\w\_]+/g, '')
+            .replace(/\_\_+/g, '_').replace(/^_+/, '').replace(/_+$/, '');
     }
 
     document.getElementById('add_name').addEventListener('input', function () {

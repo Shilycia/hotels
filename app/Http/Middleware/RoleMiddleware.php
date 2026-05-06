@@ -17,7 +17,11 @@ class RoleMiddleware
 
         $userRole = Auth::user()->role->slug ?? '';
 
-        if (in_array($userRole, $roles)) {
+        // Normalisasi: bandingkan slug tanpa peduli dash vs underscore
+        $normalizedUserRole = str_replace('-', '_', $userRole);
+        $normalizedRoles    = array_map(fn($r) => str_replace('-', '_', $r), $roles);
+
+        if (in_array($normalizedUserRole, $normalizedRoles)) {
             return $next($request);
         }
 

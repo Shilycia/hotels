@@ -24,6 +24,14 @@ class User extends Authenticatable
 
     public function hasRole(string $roleSlug): bool
     {
-        return $this->role !== null && $this->role->slug === $roleSlug;
+        if ($this->role === null) return false;
+        // Normalisasi dash vs underscore agar konsisten
+        $normalize = fn($s) => str_replace('-', '_', strtolower($s));
+        return $normalize($this->role->slug) === $normalize($roleSlug);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
     }
 }

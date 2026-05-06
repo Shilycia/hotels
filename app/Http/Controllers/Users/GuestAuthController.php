@@ -4,9 +4,14 @@ namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
 use App\Models\Guest;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
 
 class GuestAuthController extends Controller
 {
@@ -134,7 +139,76 @@ class GuestAuthController extends Controller
 
     public function forgotPassword()
     {
-        return back()->with('error', 'Fitur Lupa Kata Sandi sedang dalam pengembangan. Silakan hubungi resepsionis.');
+        return view('auth.forgot-password'); 
+    }
+
+    public function sendResetLinkEmail(Request $request)
+    {
+        $request->validate(['email' => 'required|email|exists:guests,email'], [
+            'email.exists' => 'Kami tidak dapat menemukan pengguna dengan alamat email tersebut.'
+        ]);
+
+        $token = Str::random(64);
+
+        // Simpan token ke tabel password_reset_tokens bawaan Laravel
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'email' => $request->email,
+                'token' => Hash::make($token), // Enkripsi token di DB untuk keamanan
+                'created_at' => Carbon::now()
+            ]
+        );
+
+        // Kirim Email (Kita buat view emailnya setelah ini)
+        $resetUrl = route('password.reset', ['token' => $token, 'email' => $request->email]);
+        
+        Mail::send('auth.emails.reset-password', ['url' => $resetUrl], function($message) use ($request) {
+            $message->to($request->email);
+            $message->subject('Atur Ulang Kata Sandi Akun Anda');
+        });
+
+        return back()->with('status', 'Kami telah mengirimkan tautan atur ulang kata sandi ke email Anda!');
+    }
+
+    // 3. Menampilkan form ganti password dari tautan email
+    public function showResetForm(Request $request, $token)
+    {
+        return view('auth.reset-password', ['token' => $token, 'email' => $request->email]);
+    }
+
+    // 4. Memproses penyimpanan password baru
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:guests,email',
+            'password' => 'required|min:8|confirmed',
+            'token' => 'required'
+        ]);
+
+        // Cek apakah token ada di DB
+        $resetRecord = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (!$resetRecord || !Hash::check($request->token, $resetRecord->token)) {
+            return back()->withErrors(['email' => 'Token reset kata sandi tidak valid atau sudah kedaluwarsa.']);
+        }
+
+        // Cek kedaluwarsa token (misal: valid 60 menit)
+        if (Carbon::parse($resetRecord->created_at)->addMinutes(60)->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+            return back()->withErrors(['email' => 'Tautan reset kata sandi sudah kedaluwarsa. Silakan minta ulang.']);
+        }
+
+        // Update password tamu
+        $guest = Guest::where('email', $request->email)->first();
+        $guest->update([
+            'password' => Hash::make($request->password)
+        ]);
+
+        // Hapus token setelah berhasil dipakai
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return redirect()->route('guest.login')->with('status', 'Kata sandi Anda berhasil diubah! Silakan masuk dengan kata sandi baru.');
     }
 
     public function logout(Request $request)

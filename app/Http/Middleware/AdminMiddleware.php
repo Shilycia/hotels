@@ -20,8 +20,10 @@ class AdminMiddleware
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user->hasRole('admin') && !$user->hasRole('super-admin')) {
-            abort(403, 'Akses ditolak. Hanya admin/super-admin yang diizinkan.');
+        // Cek semua slug yang valid untuk akses admin panel
+        $adminSlugs = ['admin', 'super_admin', 'super-admin'];
+        if (!$user->role || !in_array($user->role->slug, $adminSlugs)) {
+            abort(403, 'Akses ditolak. Hanya admin yang diizinkan.');
         }
 
         return $next($request);

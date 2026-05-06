@@ -11,7 +11,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-$adminRole = Role::where('slug', 'admin')->firstOrFail();
+        $adminRole = Role::where('slug', 'admin')->firstOrFail();
         $staffRole = Role::where('slug', 'staff')->firstOrFail();
 
         User::firstOrCreate(

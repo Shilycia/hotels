@@ -16,7 +16,7 @@ class AdminUserSeeder extends Seeder
     {
         // 1. Buat Role Super Admin (dan beberapa role standar lainnya)
         $superAdminRole = Role::firstOrCreate(
-            ['slug' => 'super-admin'],
+            ['slug' => 'super_admin'],
             ['name' => 'Super Admin']
         );
 

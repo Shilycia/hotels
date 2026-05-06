@@ -30,11 +30,11 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
-            'role_id' => 'nullable|exists:roles,id',
-            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
+            'name'                  => 'required|string|max:255',
+            'email'                 => 'required|email|unique:users,email',
+            'password'              => 'required|min:6|confirmed',
+            'role_id'               => 'nullable|exists:roles,id',
+            'foto'                  => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
         ]);
 
         $data = $request->except(['password', 'foto']);
@@ -57,11 +57,11 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|min:6',
-            'role_id' => 'nullable|exists:roles,id',
-            'foto' => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
+            'name'                  => 'required|string|max:255',
+            'email'                 => 'required|email|unique:users,email,' . $user->id,
+            'password'              => 'nullable|min:6|confirmed',
+            'role_id'               => 'nullable|exists:roles,id',
+            'foto'                  => 'nullable|image|mimes:jpg,png,jpeg|max:2048',
         ]);
 
         $data = $request->except(['password', 'foto']);

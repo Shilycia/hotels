@@ -26,12 +26,10 @@
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Guest Name</span>
-                            {{-- [B-07] FIX: Menampilkan nama tamu dari semua jenis pesanan --}}
                             <span class="fw-bold text-dark">{{ $payment->booking->guest->name ?? $payment->restaurantOrder->guest->name ?? $payment->packageOrder->guest->name ?? 'Tamu Hotel Neo' }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Type</span>
-                            {{-- [B-06] FIX: Menambahkan label khusus untuk Package Order --}}
                             <span class="fw-bold text-dark">{{ $payment->booking_id ? 'Room Booking' : ($payment->restaurant_order_id ? 'Restaurant Order' : 'Package Order') }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
@@ -53,10 +51,7 @@
                         <button id="pay-button" class="btn btn-primary w-100 py-3 fw-bold">
                             <i class="fa fa-credit-card me-2"></i> Pay Now
                         </button>
-                        {{-- PROTOTYPE MODE: Midtrans dinonaktifkan --}}
-                        <p class="text-center text-muted small mt-3">
-                            <i class="fa fa-flask me-1"></i> Prototype Mode – Pembayaran langsung dikonfirmasi
-                        </p>
+                        <p class="text-center text-muted small mt-3"><i class="fa fa-lock me-1"></i> Secured by Midtrans</p>
                     @else
                         <div class="alert alert-success text-center">
                             <i class="fa fa-check-circle me-2"></i> This order has been successfully paid.
@@ -72,39 +67,65 @@
 @endsection
 
 @push('scripts')
+{{-- PENTING: Script ini WAJIB ada agar pop-up Midtrans muncul --}}
+<script src="{{ config('midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('midtrans.client_key') }}"></script>
+
 <script>
     const payButton = document.getElementById('pay-button');
     if (payButton) {
         payButton.addEventListener('click', function () {
-            payButton.disabled = true;
-            payButton.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i> Memproses...';
+            
+            @if($snapToken)
+                // Membuka pop-up Midtrans
+                window.snap.pay('{{ $snapToken }}', {
+                    onSuccess: function(result) {
+                        // Jika pembayaran di Midtrans sukses, baru update status ke backend
+                        updateStatusToBackend('paid');
+                    },
+                    onPending: function(result) {
+                        updateStatusToBackend('pending');
+                    },
+                    onError: function(result) {
+                        updateStatusToBackend('failed');
+                    },
+                    onClose: function() {
+                        alert('Anda menutup jendela Midtrans sebelum menyelesaikan pembayaran.');
+                    }
+                });
+            @else
+                alert('Gagal mendapatkan Token Midtrans. Pastikan konfigurasi kunci server Midtrans Anda sudah benar.');
+            @endif
 
-            // PROTOTYPE: Langsung kirim status 'paid' tanpa melalui Midtrans
-            fetch("{{ route('guest.pay.status', $payment->id) }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({ status: 'paid' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Redirect ke dashboard/profile setelah pembayaran berhasil
-                    window.location.href = data.redirect_url;
-                } else {
-                    alert('Terjadi kesalahan. Silakan coba lagi.');
-                    payButton.disabled = false;
-                    payButton.innerHTML = '<i class="fa fa-credit-card me-2"></i> Pay Now';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Terjadi kesalahan saat memproses pembayaran.');
-                payButton.disabled = false;
-                payButton.innerHTML = '<i class="fa fa-credit-card me-2"></i> Pay Now';
-            });
+        });
+    }
+
+    // Fungsi ini hanya dipanggil SETELAH Midtrans memberikan respon
+    function updateStatusToBackend(status) {
+        payButton.disabled = true;
+        payButton.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i> Menyimpan...';
+
+        fetch("{{ route('guest.pay.status', $payment->id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ status: status })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.redirect_url) {
+                // Redirect ke profile / dashboard
+                window.location.href = data.redirect_url;
+            } else {
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan saat mengupdate status pesanan.');
+            payButton.disabled = false;
+            payButton.innerHTML = '<i class="fa fa-credit-card me-2"></i> Pay Now';
         });
     }
 </script>
