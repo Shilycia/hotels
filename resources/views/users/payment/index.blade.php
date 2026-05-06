@@ -53,12 +53,15 @@
                         <button id="pay-button" class="btn btn-primary w-100 py-3 fw-bold">
                             <i class="fa fa-credit-card me-2"></i> Pay Now
                         </button>
-                        <p class="text-center text-muted small mt-3"><i class="fa fa-lock me-1"></i> Secured by Midtrans</p>
+                        {{-- PROTOTYPE MODE: Midtrans dinonaktifkan --}}
+                        <p class="text-center text-muted small mt-3">
+                            <i class="fa fa-flask me-1"></i> Prototype Mode – Pembayaran langsung dikonfirmasi
+                        </p>
                     @else
                         <div class="alert alert-success text-center">
                             <i class="fa fa-check-circle me-2"></i> This order has been successfully paid.
                         </div>
-                        <a href="{{ route('home') }}" class="btn btn-outline-primary w-100 py-3">Back to Home</a>
+                        <a href="{{ route('guest.profile') }}" class="btn btn-primary w-100 py-3">Go to Dashboard</a>
                     @endif
                 </div>
             </div>
@@ -69,47 +72,39 @@
 @endsection
 
 @push('scripts')
-<script src="{{ config('midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('midtrans.client_key') }}"></script>
-
 <script>
     const payButton = document.getElementById('pay-button');
     if (payButton) {
         payButton.addEventListener('click', function () {
-            window.snap.pay('{{ $snapToken }}', {
-                onSuccess: function(result) {
-                    updatePaymentStatus('paid');
-                },
-                onPending: function(result) {
-                    updatePaymentStatus('pending');
-                },
-                onError: function(result) {
-                    updatePaymentStatus('failed');
-                },
-                onClose: function() {
-                    alert('Anda menutup popup sebelum menyelesaikan pembayaran.');
-                }
-            });
-        });
-    }
+            payButton.disabled = true;
+            payButton.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i> Memproses...';
 
-    function updatePaymentStatus(status) {
-        fetch("{{ route('guest.pay.status', $payment->id) }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ status: status })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                window.location.reload();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Terjadi kesalahan saat mengupdate status ke server.');
+            // PROTOTYPE: Langsung kirim status 'paid' tanpa melalui Midtrans
+            fetch("{{ route('guest.pay.status', $payment->id) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ status: 'paid' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect ke dashboard/profile setelah pembayaran berhasil
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Terjadi kesalahan. Silakan coba lagi.');
+                    payButton.disabled = false;
+                    payButton.innerHTML = '<i class="fa fa-credit-card me-2"></i> Pay Now';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Terjadi kesalahan saat memproses pembayaran.');
+                payButton.disabled = false;
+                payButton.innerHTML = '<i class="fa fa-credit-card me-2"></i> Pay Now';
+            });
         });
     }
 </script>

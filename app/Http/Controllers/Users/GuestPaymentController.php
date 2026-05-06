@@ -122,7 +122,8 @@ class GuestPaymentController extends Controller
         try {
             $snapToken = \Midtrans\Snap::getSnapToken($params);
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal terhubung ke penyedia pembayaran: ' . $e->getMessage());
+            // PROTOTYPE MODE: Jika Midtrans tidak dikonfigurasi, lanjutkan tanpa snap token
+            $snapToken = null;
         }
 
         return view('users.payment.index', compact('payment', 'snapToken'));
@@ -174,6 +175,9 @@ class GuestPaymentController extends Controller
             }
         }
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'redirect_url' => route('guest.profile'),
+        ]);
     }
 }
